@@ -1,0 +1,83 @@
+(function initConfig(global) {
+  "use strict";
+
+  const CONFIG = {
+    appName: "Doubao Toolkit",
+    namespace: "doubao-toolkit",
+    debug: true,
+    retry: {
+      maxAttempts: 5,
+      intervalMs: 350
+    },
+    timing: {
+      sessionRefreshDebounceMs: 180,
+      afterClickMs: 260,
+      deleteStepDelayMs: 300
+    },
+    selectors: {
+      sessionListRoots: [
+        "aside",
+        "[data-testid*='history']",
+        "[data-testid*='conversation']",
+        "[class*='history']",
+        "[class*='conversation']",
+        "[class*='sidebar']"
+      ],
+      sessionItemCandidates: [
+        "[data-testid*='conversation-item']",
+        "[data-testid*='history-item']",
+        "[role='listitem']",
+        "a[href*='conversation']",
+        "a[href*='chat']",
+        "[class*='conversation-item']",
+        "[class*='history-item']",
+        "[class*='session-item']",
+        "li"
+      ],
+      menuButtonCandidates: [
+        "button[aria-label*='more' i]",
+        "button[aria-label*='\\u66f4\\u591a']",
+        "button[title*='more' i]",
+        "button[title*='\\u66f4\\u591a']",
+        "button[class*='more']",
+        "button[class*='menu']",
+        "[role='button'][aria-haspopup='menu']"
+      ],
+      deleteActionCandidates: [
+        "[role='menuitem']",
+        "button",
+        "[role='button']",
+        "li"
+      ],
+      confirmDeleteCandidates: [
+        "button[data-testid*='confirm']",
+        "button[class*='danger']",
+        "button[class*='confirm']",
+        "button"
+      ],
+      menuContainerCandidates: [
+        "[role='menu']",
+        "[class*='menu']",
+        "[class*='dropdown']",
+        "[class*='popover']",
+        "[data-state='open']",
+        "[data-headlessui-state='open']"
+      ],
+      dialogContainerCandidates: [
+        "[role='dialog']",
+        "[aria-modal='true']",
+        "[class*='modal']",
+        "[class*='dialog']"
+      ]
+    },
+    keyword: {
+      delete: ["delete", "remove", "\u5220\u9664", "\u6e05\u9664", "\u79fb\u9664"],
+      confirm: ["confirm", "ok", "yes", "\u786e\u5b9a", "\u786e\u8ba4", "\u5220\u9664"],
+      cancel: ["cancel", "\u53d6\u6d88"],
+      createNewChat: ["new chat", "\u65b0\u5efa", "\u65b0\u5bf9\u8bdd", "\u521b\u5efa"]
+    }
+  };
+
+  global.DoubaoToolkit = global.DoubaoToolkit || {};
+  global.DoubaoToolkit.config = CONFIG;
+})(window);

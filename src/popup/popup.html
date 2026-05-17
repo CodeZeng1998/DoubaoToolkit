@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Doubao Toolkit</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="popup-header">
+        <h1>Doubao Toolkit</h1>
+        <p>Manage Doubao chat sessions faster.</p>
+      </header>
+
+      <section class="status-card">
+        <div class="status-item">
+          <span>Total</span>
+          <strong id="totalSessions">0</strong>
+        </div>
+        <div class="status-item">
+          <span>Selected</span>
+          <strong id="selectedSessions">0</strong>
+        </div>
+        <div class="status-item">
+          <span>Mode</span>
+          <strong id="modeLabel">OFF</strong>
+        </div>
+      </section>
+
+      <section class="actions">
+        <button id="toggleModeBtn" class="btn btn-primary">Enable Multi-Select</button>
+        <button id="selectAllBtn" class="btn btn-ghost">Select All</button>
+        <button id="clearSelectionBtn" class="btn btn-ghost">Clear Selection</button>
+        <button id="deleteSelectedBtn" class="btn btn-danger">Delete Selected</button>
+        <button id="deleteAllBtn" class="btn btn-danger-outline">Delete All</button>
+      </section>
+
+      <p id="message" class="message"></p>
+    </main>
+
+    <script src="./popup.js"></script>
+  </body>
+</html>

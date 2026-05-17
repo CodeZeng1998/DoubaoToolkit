@@ -1,0 +1,385 @@
+:root {
+  --dtk-bg: #ffffff;
+  --dtk-bg-soft: #f5f7fb;
+  --dtk-text: #1d2330;
+  --dtk-text-muted: #6a7386;
+  --dtk-border: #d9deea;
+  --dtk-primary: #1f6fff;
+  --dtk-danger: #e04949;
+  --dtk-success: #24a66a;
+  --dtk-warning: #ff9f1a;
+  --dtk-shadow: 0 8px 24px rgba(15, 25, 40, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --dtk-bg: #171a22;
+    --dtk-bg-soft: #202633;
+    --dtk-text: #f2f5ff;
+    --dtk-text-muted: #aeb7c8;
+    --dtk-border: #34405a;
+    --dtk-primary: #5b93ff;
+    --dtk-danger: #ff6767;
+    --dtk-success: #46c890;
+    --dtk-warning: #ffb84b;
+    --dtk-shadow: 0 10px 26px rgba(0, 0, 0, 0.38);
+  }
+}
+
+.dtk-page-badge {
+  position: fixed;
+  right: 14px;
+  bottom: 16px;
+  z-index: 999999;
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: var(--dtk-bg-soft);
+  color: var(--dtk-text);
+  border: 1px solid var(--dtk-border);
+  box-shadow: var(--dtk-shadow);
+  font-size: 12px;
+  transition: opacity 0.25s ease;
+}
+
+.dtk-page-badge.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dtk-session-checkbox {
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  border: 1px solid var(--dtk-border);
+  background: var(--dtk-bg);
+  border-radius: 6px;
+  flex-shrink: 0;
+  cursor: pointer;
+  position: relative;
+}
+
+.dtk-session-checkbox[aria-checked="true"] {
+  border-color: var(--dtk-primary);
+  background: color-mix(in srgb, var(--dtk-primary) 13%, var(--dtk-bg));
+}
+
+.dtk-session-checkbox[aria-checked="true"]::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--dtk-primary);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.dtk-multi-select-enabled .dtk-session-selected {
+  outline: 1px solid color-mix(in srgb, var(--dtk-primary) 70%, transparent);
+  border-radius: 10px;
+}
+
+.dtk-toast-container {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 999999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dtk-toast {
+  min-width: 220px;
+  max-width: 330px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--dtk-text);
+  background: var(--dtk-bg);
+  border: 1px solid var(--dtk-border);
+  border-left-width: 4px;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: var(--dtk-shadow);
+  animation: dtk-slide-in 0.18s ease;
+}
+
+.dtk-toast-info {
+  border-left-color: var(--dtk-primary);
+}
+
+.dtk-toast-success {
+  border-left-color: var(--dtk-success);
+}
+
+.dtk-toast-warning {
+  border-left-color: var(--dtk-warning);
+}
+
+.dtk-toast-error {
+  border-left-color: var(--dtk-danger);
+}
+
+.dtk-toast.leaving {
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: all 0.18s ease;
+}
+
+.dtk-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 22, 38, 0.48);
+  display: grid;
+  place-items: center;
+  z-index: 999999;
+}
+
+.dtk-modal {
+  width: min(420px, calc(100vw - 32px));
+  background: var(--dtk-bg);
+  border: 1px solid var(--dtk-border);
+  box-shadow: var(--dtk-shadow);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.dtk-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--dtk-text);
+  margin-bottom: 8px;
+}
+
+.dtk-modal-message {
+  font-size: 13px;
+  color: var(--dtk-text-muted);
+  line-height: 1.6;
+}
+
+.dtk-modal-danger .dtk-modal-title {
+  color: var(--dtk-danger);
+}
+
+.dtk-modal-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.dtk-btn {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 13px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+.dtk-btn-primary {
+  background: var(--dtk-primary);
+  color: #fff;
+}
+
+.dtk-btn-danger {
+  background: var(--dtk-danger);
+  color: #fff;
+}
+
+.dtk-btn-ghost {
+  background: transparent;
+  color: var(--dtk-text);
+  border-color: var(--dtk-border);
+}
+
+.dtk-progress-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 20, 0.34);
+  display: none;
+  place-items: center;
+  z-index: 999999;
+}
+
+.dtk-progress-overlay.visible {
+  display: grid;
+}
+
+.dtk-progress-panel {
+  width: min(420px, calc(100vw - 28px));
+  padding: 18px;
+  border-radius: 16px;
+  background: var(--dtk-bg);
+  border: 1px solid var(--dtk-border);
+  box-shadow: var(--dtk-shadow);
+}
+
+.dtk-progress-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--dtk-text);
+}
+
+.dtk-progress-bar {
+  height: 10px;
+  background: var(--dtk-bg-soft);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--dtk-border);
+}
+
+.dtk-progress-bar-fill {
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--dtk-primary), #4ca5ff);
+  transition: width 0.2s ease;
+}
+
+.dtk-progress-detail {
+  margin-top: 9px;
+  font-size: 12px;
+  color: var(--dtk-text-muted);
+}
+
+@keyframes dtk-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dtk-floating-root {
+  position: fixed;
+  right: 16px;
+  bottom: 88px;
+  z-index: 999999;
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  user-select: none;
+}
+
+.dtk-floating-root.dragging {
+  cursor: grabbing;
+}
+
+.dtk-floating-toggle {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  border: 1px solid var(--dtk-border);
+  background: linear-gradient(135deg, var(--dtk-primary), #4ca5ff);
+  color: #fff;
+  box-shadow: var(--dtk-shadow);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  position: relative;
+  touch-action: none;
+}
+
+.dtk-floating-dot {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.dtk-floating-count {
+  position: absolute;
+  right: -5px;
+  top: -5px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--dtk-danger);
+  color: #fff;
+  font-size: 11px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.dtk-floating-panel {
+  width: 280px;
+  margin-top: 10px;
+  border: 1px solid var(--dtk-border);
+  border-radius: 14px;
+  background: var(--dtk-bg);
+  box-shadow: var(--dtk-shadow);
+  padding: 12px;
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+  pointer-events: none;
+  transition: all 0.16s ease;
+}
+
+.dtk-floating-root.open .dtk-floating-panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.dtk-floating-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: var(--dtk-text);
+}
+
+.dtk-floating-status {
+  font-size: 12px;
+  color: var(--dtk-text-muted);
+}
+
+.dtk-floating-metrics {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--dtk-text-muted);
+  margin-bottom: 10px;
+}
+
+.dtk-floating-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.dtk-mini-btn {
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-size: 12px;
+  padding: 7px 8px;
+  cursor: pointer;
+}
+
+.dtk-mini-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.dtk-mini-btn-primary {
+  background: var(--dtk-primary);
+  color: #fff;
+}
+
+.dtk-mini-btn-ghost {
+  background: transparent;
+  color: var(--dtk-text);
+  border-color: var(--dtk-border);
+}
+
+.dtk-mini-btn-danger {
+  background: var(--dtk-danger);
+  color: #fff;
+}
+
+.dtk-mini-btn-danger-outline {
+  background: transparent;
+  color: var(--dtk-danger);
+  border-color: color-mix(in srgb, var(--dtk-danger) 60%, var(--dtk-border));
+}
