@@ -3,6 +3,7 @@
   "name": "Doubao Toolkit",
   "description": "Enhance Doubao web chat management with multi-select and bulk-delete flows.",
   "version": "0.1.0",
+  "default_locale": "en",
   "permissions": [
     "tabs",
     "activeTab",

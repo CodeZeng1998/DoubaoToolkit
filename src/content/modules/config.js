@@ -12,7 +12,10 @@
     timing: {
       sessionRefreshDebounceMs: 180,
       afterClickMs: 260,
-      deleteStepDelayMs: 300
+      deleteStepDelayMs: 300,
+      menuOpenTimeoutMs: 1200,
+      waitForNodePollMs: 80,
+      deleteResultTimeoutMs: 2600
     },
     selectors: {
       sessionListRoots: [
@@ -36,11 +39,19 @@
       ],
       menuButtonCandidates: [
         "button[aria-label*='more' i]",
+        "[aria-label*='more' i]",
         "button[aria-label*='\\u66f4\\u591a']",
+        "[aria-label*='\\u66f4\\u591a']",
         "button[title*='more' i]",
+        "[title*='more' i]",
         "button[title*='\\u66f4\\u591a']",
+        "[title*='\\u66f4\\u591a']",
         "button[class*='more']",
+        "[class*='more']",
         "button[class*='menu']",
+        "[class*='menu']",
+        "[data-testid*='more']",
+        "[data-testid*='menu']",
         "[role='button'][aria-haspopup='menu']"
       ],
       deleteActionCandidates: [

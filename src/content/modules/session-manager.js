@@ -307,35 +307,105 @@
       };
     }
 
-    async openDeleteMenuForSession(sessionNode) {
-      domUtils.simulateHover(sessionNode);
-      domUtils.simulateClick(sessionNode);
-      await retry.sleep(config.timing.afterClickMs);
+    async waitForDeleteAction(referenceNode, timeoutMs = config.timing.menuOpenTimeoutMs) {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        const node = chatSelectors.findDeleteActionNode(referenceNode);
+        if (node) {
+          return node;
+        }
+        await retry.sleep(config.timing.waitForNodePollMs);
+      }
+      return null;
+    }
 
-      const menuButton = chatSelectors.findDeleteMenuButton(sessionNode);
-      if (menuButton) {
-        logger.debug(
-          "Menu button candidate:",
-          menuButton.getAttribute("aria-label") || menuButton.title || menuButton.className || menuButton.tagName
-        );
-        domUtils.simulateHover(menuButton);
-        domUtils.simulateClick(menuButton);
-        await retry.sleep(config.timing.afterClickMs);
+    getMenuTriggerNodes(target) {
+      const nodes = [];
+      const sessionNode = target?.element;
+      if (target?.anchor instanceof HTMLElement) {
+        nodes.push(target.anchor);
+      }
+      if (sessionNode instanceof HTMLElement) {
+        nodes.push(sessionNode);
+        const anchorInNode = sessionNode.querySelector("a[href*='/chat/']");
+        if (anchorInNode instanceof HTMLElement) {
+          nodes.push(anchorInNode);
+        }
+        const buttonInNode = sessionNode.querySelector("button,[role='button']");
+        if (
+          buttonInNode instanceof HTMLElement &&
+          !buttonInNode.classList?.contains("dtk-session-checkbox") &&
+          !domUtils.isInToolkitUI(buttonInNode)
+        ) {
+          nodes.push(buttonInNode);
+        }
       }
 
-      // Fallback: many sidebar lists use context menu rather than a visible "more" button.
-      if (!chatSelectors.findDeleteActionNode(sessionNode)) {
-        const rect = sessionNode.getBoundingClientRect();
-        domUtils.simulateContextMenu(sessionNode, {
+      const unique = Array.from(new Set(nodes));
+      return unique.filter((node) => node instanceof HTMLElement && document.body.contains(node) && domUtils.isVisible(node));
+    }
+
+    async openDeleteMenuForSession(target) {
+      const sessionNode = target?.element;
+      if (!(sessionNode instanceof HTMLElement)) {
+        return false;
+      }
+
+      const triggerNodes = this.getMenuTriggerNodes(target);
+      logger.debug("Menu trigger candidates:", triggerNodes.length);
+      if (triggerNodes.length === 0) {
+        logger.warn("No menu trigger candidates for session:", target?.title || "(unknown)");
+      }
+      for (const triggerNode of triggerNodes) {
+        domUtils.scrollIntoViewIfNeeded(triggerNode);
+        domUtils.simulateHover(triggerNode);
+
+        const menuButton = chatSelectors.findDeleteMenuButton(sessionNode);
+        if (menuButton) {
+          logger.debug(
+            "Menu button candidate:",
+            menuButton.getAttribute("aria-label") || menuButton.title || menuButton.className || menuButton.tagName
+          );
+          domUtils.simulateHover(menuButton);
+          domUtils.simulateClick(menuButton);
+          await retry.sleep(config.timing.afterClickMs);
+          if (await this.waitForDeleteAction(sessionNode)) {
+            return true;
+          }
+        }
+
+        // Avoid clicking direct chat anchors first because it can navigate away instead of opening menu.
+        const isChatAnchor =
+          triggerNode.tagName.toLowerCase() === "a" && (triggerNode.getAttribute("href") || "").includes("/chat/");
+        if (!isChatAnchor) {
+          domUtils.simulateClick(triggerNode);
+          await retry.sleep(config.timing.afterClickMs);
+          if (await this.waitForDeleteAction(sessionNode)) {
+            return true;
+          }
+        }
+
+        const rect = triggerNode.getBoundingClientRect();
+        domUtils.simulateContextMenu(triggerNode, {
           clientX: rect.right - 8,
           clientY: rect.top + Math.max(8, rect.height / 2)
         });
         await retry.sleep(config.timing.afterClickMs);
+        if (await this.waitForDeleteAction(sessionNode)) {
+          return true;
+        }
+
+        domUtils.simulateSecondaryClick(triggerNode, {
+          clientX: rect.right - 8,
+          clientY: rect.top + Math.max(8, rect.height / 2)
+        });
+        await retry.sleep(config.timing.afterClickMs);
+        if (await this.waitForDeleteAction(sessionNode)) {
+          return true;
+        }
       }
 
-      if (!chatSelectors.findDeleteActionNode(sessionNode)) {
-        throw new Error("Unable to open menu for delete action.");
-      }
+      return false;
     }
 
     async clickDeleteAction(referenceNode, withFallback = false) {
@@ -353,13 +423,64 @@
       await retry.sleep(config.timing.afterClickMs);
     }
 
+    getKeyboardDeleteTargets(referenceNode) {
+      if (!(referenceNode instanceof HTMLElement)) {
+        return [];
+      }
+      const candidates = [];
+      const selectors = ["a[href*='/chat/']", "button", "[role='button']", "[tabindex]", "[role='listitem']"];
+      for (const selector of selectors) {
+        for (const node of referenceNode.querySelectorAll(selector)) {
+          if (!(node instanceof HTMLElement) || !domUtils.isVisible(node) || domUtils.isInToolkitUI(node)) {
+            continue;
+          }
+          candidates.push(node);
+        }
+      }
+      candidates.push(referenceNode);
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) {
+        candidates.push(active);
+      }
+      return Array.from(new Set(candidates));
+    }
+
     async clickDeleteActionByKeyboard(referenceNode) {
       if (!referenceNode) {
         throw new Error("Unable to locate delete action.");
       }
-      domUtils.simulateClick(referenceNode);
-      await retry.sleep(120);
-      domUtils.simulateKey(referenceNode, "Delete");
+      const targets = this.getKeyboardDeleteTargets(referenceNode);
+      logger.debug("Keyboard delete candidates:", targets.length);
+      if (targets.length === 0) {
+        logger.warn("No keyboard delete candidates found.");
+      }
+      for (const target of targets) {
+        domUtils.scrollIntoViewIfNeeded(target);
+        domUtils.simulateHover(target);
+        domUtils.simulateClick(target);
+        await retry.sleep(120);
+        domUtils.simulateKey(target, "ContextMenu");
+        domUtils.simulateKey(target, "F10", { shiftKey: true });
+        await retry.sleep(Math.max(120, Math.floor(config.timing.afterClickMs / 2)));
+        const actionViaMenu = chatSelectors.findDeleteActionNode(referenceNode);
+        if (actionViaMenu) {
+          domUtils.simulateHover(actionViaMenu);
+          domUtils.simulateClick(actionViaMenu);
+          await retry.sleep(config.timing.afterClickMs);
+          return;
+        }
+        domUtils.simulateKey(target, "Delete");
+        domUtils.simulateKey(target, "Backspace");
+        await retry.sleep(Math.max(120, Math.floor(config.timing.afterClickMs / 2)));
+        if (chatSelectors.findConfirmDeleteNode()) {
+          return;
+        }
+      }
+
+      if (document.body) {
+        domUtils.simulateKey(document.body, "Delete");
+        domUtils.simulateKey(document.body, "Backspace");
+      }
       await retry.sleep(config.timing.afterClickMs);
       // In some variants, Delete opens dialog directly.
     }
@@ -381,6 +502,17 @@
       return Boolean(liveTarget && liveTarget.element && document.body.contains(liveTarget.element));
     }
 
+    async waitForSessionRemoved(target, timeoutMs = config.timing.deleteResultTimeoutMs) {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        if (!this.isSessionPresent(target)) {
+          return true;
+        }
+        await retry.sleep(config.timing.waitForNodePollMs);
+      }
+      return !this.isSessionPresent(target);
+    }
+
     async deleteSingleSession(target) {
       const operation = async (attempt) => {
         this.refreshSessions();
@@ -390,13 +522,24 @@
           throw new Error(`Session node missing at attempt ${attempt}.`);
         }
         logger.debug("Delete attempt", attempt, "for", liveTarget.title);
-        await this.openDeleteMenuForSession(sessionNode);
-        await this.clickDeleteAction(sessionNode, attempt > 1);
+        const menuOpened = await this.openDeleteMenuForSession(liveTarget);
+        if (menuOpened) {
+          await this.clickDeleteAction(sessionNode, attempt > 1);
+        } else {
+          logger.warn(
+            "Menu open failed; trying keyboard delete fallback.",
+            liveTarget.title,
+            "triggers:",
+            this.getMenuTriggerNodes(liveTarget).length
+          );
+          await this.clickDeleteActionByKeyboard(sessionNode);
+        }
         const clickedConfirm = await this.clickConfirmDelete();
         if (!clickedConfirm) {
           await retry.sleep(config.timing.deleteStepDelayMs);
         }
-        if (this.isSessionPresent(liveTarget)) {
+        const removed = await this.waitForSessionRemoved(liveTarget);
+        if (!removed) {
           throw new Error("Session still exists after delete action.");
         }
       };

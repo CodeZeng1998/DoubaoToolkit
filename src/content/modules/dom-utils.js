@@ -131,13 +131,33 @@
     }
     const tag = element.tagName.toLowerCase();
     const role = normalizeText(element.getAttribute("role") || "");
+    const hasOnClick = typeof element.onclick === "function" || element.hasAttribute("onclick");
+    const style = window.getComputedStyle(element);
     const tabIndex = Number(element.getAttribute("tabindex"));
     return (
       ["button", "a", "li"].includes(tag) ||
       role.includes("button") ||
       role.includes("menuitem") ||
+      role.includes("option") ||
+      role.includes("listitem") ||
+      hasOnClick ||
+      style.cursor === "pointer" ||
       Number.isFinite(tabIndex)
     );
+  }
+
+  function scrollIntoViewIfNeeded(element) {
+    if (!element || typeof element.scrollIntoView !== "function") {
+      return;
+    }
+    try {
+      element.scrollIntoView({
+        block: "nearest",
+        inline: "nearest"
+      });
+    } catch (_error) {
+      // Ignore non-critical scroll errors for detached/recycled nodes.
+    }
   }
 
   function simulateClick(element, eventInit = {}) {
@@ -146,6 +166,28 @@
     }
     element.focus?.();
     dispatchMouseSequence(element, eventInit);
+  }
+
+  function simulateSecondaryClick(element, eventInit = {}) {
+    if (!element) {
+      throw new Error("simulateSecondaryClick received empty element.");
+    }
+    const center = getElementCenter(element);
+    const sharedInit = {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      view: window,
+      button: 2,
+      buttons: 2,
+      clientX: center.x,
+      clientY: center.y,
+      ...eventInit
+    };
+    const events = ["pointerdown", "mousedown", "contextmenu", "pointerup", "mouseup"];
+    for (const eventName of events) {
+      element.dispatchEvent(new MouseEvent(eventName, sharedInit));
+    }
   }
 
   function simulateContextMenu(element, eventInit = {}) {
@@ -167,7 +209,7 @@
     element.dispatchEvent(contextEvent);
   }
 
-  function simulateKey(element, key) {
+  function simulateKey(element, key, extraOptions = {}) {
     if (!element) {
       return;
     }
@@ -176,7 +218,8 @@
       key,
       bubbles: true,
       cancelable: true,
-      composed: true
+      composed: true,
+      ...extraOptions
     };
     element.dispatchEvent(new KeyboardEvent("keydown", options));
     element.dispatchEvent(new KeyboardEvent("keyup", options));
@@ -193,10 +236,12 @@
     isInToolkitUI,
     hashString,
     simulateHover,
+    scrollIntoViewIfNeeded,
     getElementCenter,
     calcDistance,
     isClickable,
     simulateClick,
+    simulateSecondaryClick,
     simulateContextMenu,
     simulateKey
   };

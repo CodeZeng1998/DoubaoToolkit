@@ -81,7 +81,8 @@
         id: `conv-${item.id}`,
         conversationId: item.id,
         title: item.title || domUtils.normalizeText(container.innerText || "").slice(0, 80),
-        element: container
+        element: container,
+        anchor
       });
     }
     return sessions;
@@ -112,7 +113,8 @@
         id: `conv-${id}`,
         conversationId: id,
         title: domUtils.normalizeText(container.innerText || "").slice(0, 80),
-        element: container
+        element: container,
+        anchor
       });
     }
     return list;
