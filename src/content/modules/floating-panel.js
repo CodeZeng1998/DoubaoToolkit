@@ -40,25 +40,25 @@
       const root = document.createElement("div");
       root.className = "dtk-floating-root";
       root.innerHTML = `
-        <button type="button" class="dtk-floating-toggle" aria-label="Doubao Toolkit">
+        <button type="button" class="dtk-floating-toggle" aria-label="豆包工具箱">
           <span class="dtk-floating-dot">D</span>
           <span class="dtk-floating-count">0</span>
         </button>
         <section class="dtk-floating-panel">
           <header class="dtk-floating-header">
-            <strong>Doubao Toolkit</strong>
-            <span class="dtk-floating-status">Ready</span>
+            <strong>豆包工具箱</strong>
+            <span class="dtk-floating-status">就绪</span>
           </header>
           <div class="dtk-floating-metrics">
-            <span>Total: <b class="dtk-metric-total">0</b></span>
-            <span>Selected: <b class="dtk-metric-selected">0</b></span>
+            <span>总数：<b class="dtk-metric-total">0</b></span>
+            <span>已选：<b class="dtk-metric-selected">0</b></span>
           </div>
           <div class="dtk-floating-actions">
-            <button type="button" data-action="toggle-mode" class="dtk-mini-btn dtk-mini-btn-primary">Enable Multi-Select</button>
-            <button type="button" data-action="select-all" class="dtk-mini-btn dtk-mini-btn-ghost">Select All</button>
-            <button type="button" data-action="clear" class="dtk-mini-btn dtk-mini-btn-ghost">Clear</button>
-            <button type="button" data-action="delete-selected" class="dtk-mini-btn dtk-mini-btn-danger">Delete Selected</button>
-            <button type="button" data-action="delete-all" class="dtk-mini-btn dtk-mini-btn-danger-outline">Delete All</button>
+            <button type="button" data-action="toggle-mode" class="dtk-mini-btn dtk-mini-btn-primary">开启多选</button>
+            <button type="button" data-action="select-all" class="dtk-mini-btn dtk-mini-btn-ghost">全选</button>
+            <button type="button" data-action="clear" class="dtk-mini-btn dtk-mini-btn-ghost">清空选择</button>
+            <button type="button" data-action="delete-selected" class="dtk-mini-btn dtk-mini-btn-danger">删除已选</button>
+            <button type="button" data-action="delete-all" class="dtk-mini-btn dtk-mini-btn-danger-outline">全部删除</button>
           </div>
         </section>
       `;
@@ -244,8 +244,8 @@
       this.countNode.textContent = String(state.selectedCount || 0);
       this.totalNode.textContent = String(state.totalSessions || 0);
       this.selectedNode.textContent = String(state.selectedCount || 0);
-      this.modeBtn.textContent = state.multiSelectMode ? "Disable Multi-Select" : "Enable Multi-Select";
-      this.statusNode.textContent = state.isDeleting ? "Deleting..." : "Ready";
+      this.modeBtn.textContent = state.multiSelectMode ? "关闭多选" : "开启多选";
+      this.statusNode.textContent = state.isDeleting ? "删除中..." : "就绪";
 
       const disabled = Boolean(state.isDeleting);
       for (const button of this.panel.querySelectorAll("button")) {
