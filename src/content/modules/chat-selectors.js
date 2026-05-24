@@ -29,6 +29,7 @@
     const selectors = [
       `a[href$='/chat/${conversationId}']`,
       `a[href*='/chat/${conversationId}?']`,
+      `a[href*='/chat/${conversationId}/']`,
       `a[href*='doubao.com/chat/${conversationId}']`
     ];
     for (const selector of selectors) {
@@ -38,6 +39,90 @@
       }
     }
     return null;
+  }
+
+  function findElementByConversationId(conversationId) {
+    const selectors = [
+      `[id='thread_${conversationId}']`,
+      `[id$='_${conversationId}']`,
+      `[data-conversation-id='${conversationId}']`,
+      `[data-thread-id='${conversationId}']`,
+      `[data-id='${conversationId}']`
+    ];
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element && domUtils.isVisible(element) && !domUtils.isInToolkitUI(element)) {
+        return element;
+      }
+    }
+    return null;
+  }
+
+  function extractConversationIdFromValue(value) {
+    const text = String(value || "");
+    const patterns = [
+      /\/chat\/(\d+)/,
+      /(?:^|[_-])thread[_-](\d+)(?:$|[_-])/,
+      /(?:conversation|conversation_id|conv|chat|thread)[_-]?id["'=:\s_-]+(\d+)/i,
+      /(?:conversation|conv|chat|thread)[_-](\d+)/i
+    ];
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match?.[1]) {
+        return match[1];
+      }
+    }
+    if (/^\d{6,}$/.test(text.trim())) {
+      return text.trim();
+    }
+    return "";
+  }
+
+  function extractConversationIdFromElement(element) {
+    if (!(element instanceof HTMLElement)) {
+      return "";
+    }
+    const directValues = [
+      element.id,
+      element.getAttribute("href"),
+      element.getAttribute("data-testid"),
+      element.getAttribute("data-id"),
+      element.getAttribute("data-conversation-id"),
+      element.getAttribute("data-thread-id"),
+      element.getAttribute("data-key"),
+      element.getAttribute("aria-label")
+    ];
+    for (const value of directValues) {
+      const id = extractConversationIdFromValue(value);
+      if (id) {
+        return id;
+      }
+    }
+    const anchor = element.matches("a[href*='/chat/']")
+      ? element
+      : element.querySelector("a[href*='/chat/'],a[href*='conversation']");
+    return extractConversationIdFromValue(anchor?.getAttribute("href") || "");
+  }
+
+  function looksLikeSessionContainer(element) {
+    if (!(element instanceof HTMLElement)) {
+      return false;
+    }
+    const testId = domUtils.normalizeText(element.getAttribute("data-testid") || "");
+    const id = domUtils.normalizeText(element.id || "");
+    const className = domUtils.normalizeText(element.className || "");
+    const role = domUtils.normalizeText(element.getAttribute("role") || "");
+    return (
+      testId.includes("chat_list_thread") ||
+      testId.includes("conversation") ||
+      testId.includes("history") ||
+      id.startsWith("thread_") ||
+      id.includes("conversation") ||
+      className.includes("conversation") ||
+      className.includes("history") ||
+      className.includes("session") ||
+      role === "listitem"
+    );
   }
 
   function getLikelySessionContainer(anchor) {
@@ -53,6 +138,9 @@
       if (domUtils.isInToolkitUI(current)) {
         current = current.parentElement;
         continue;
+      }
+      if (looksLikeSessionContainer(current) && domUtils.isVisible(current)) {
+        return current;
       }
       const hasControl = Boolean(current.querySelector("button,[role='button']"));
       const text = domUtils.normalizeText(current.innerText || "");
@@ -70,10 +158,8 @@
     const sessions = [];
     for (const item of getRouterConversations()) {
       const anchor = findAnchorByConversationId(item.id);
-      if (!anchor) {
-        continue;
-      }
-      const container = getLikelySessionContainer(anchor);
+      const directElement = findElementByConversationId(item.id);
+      const container = getLikelySessionContainer(anchor || directElement);
       if (!container || !domUtils.isVisible(container)) {
         continue;
       }
@@ -91,44 +177,66 @@
   function getSessionsFromDomFallback() {
     const list = [];
     const seen = new Set();
-    for (const anchor of document.querySelectorAll("a[href*='/chat/']")) {
-      if (!domUtils.isVisible(anchor) || domUtils.isInToolkitUI(anchor)) {
-        continue;
+
+    function pushSession(sourceNode) {
+      if (!(sourceNode instanceof HTMLElement) || !domUtils.isVisible(sourceNode) || domUtils.isInToolkitUI(sourceNode)) {
+        return;
       }
-      const href = anchor.getAttribute("href") || "";
-      const match = href.match(/\/chat\/(\d+)/);
-      if (!match) {
-        continue;
+      const id = extractConversationIdFromElement(sourceNode);
+      if (!id) {
+        return;
       }
-      const id = match[1];
       if (seen.has(id)) {
-        continue;
+        return;
       }
       seen.add(id);
-      const container = getLikelySessionContainer(anchor);
+      const anchor =
+        sourceNode.matches("a[href*='/chat/']") ? sourceNode : sourceNode.querySelector("a[href*='/chat/']");
+      const container = getLikelySessionContainer(anchor || sourceNode);
       if (!container) {
-        continue;
+        return;
       }
       list.push({
         id: `conv-${id}`,
         conversationId: id,
         title: domUtils.normalizeText(container.innerText || "").slice(0, 80),
         element: container,
-        anchor
+        anchor: anchor || findAnchorByConversationId(id)
       });
     }
+
+    for (const anchor of document.querySelectorAll("a[href*='/chat/']")) {
+      pushSession(anchor);
+    }
+
+    const selectors = config?.selectors?.sessionItemCandidates ?? [];
+    for (const selector of selectors) {
+      for (const node of document.querySelectorAll(selector)) {
+        pushSession(node);
+      }
+    }
+
     return list;
   }
 
   function getSessionItems() {
     const fromRouter = getSessionsFromRouterData();
-    if (fromRouter.length > 0) {
-      logger?.debug("Session candidates(from router):", fromRouter.length);
-      return fromRouter;
-    }
     const fallback = getSessionsFromDomFallback();
-    logger?.debug("Session candidates(from DOM fallback):", fallback.length);
-    return fallback;
+    const merged = [];
+    const seen = new Set();
+    for (const session of [...fromRouter, ...fallback]) {
+      if (!session?.conversationId || seen.has(session.conversationId)) {
+        continue;
+      }
+      seen.add(session.conversationId);
+      merged.push(session);
+    }
+    logger?.debug("Session candidates:", {
+      router: fromRouter.length,
+      dom: fallback.length,
+      merged: merged.length
+    });
+    return merged;
   }
 
   function getCandidateButtons(sessionItemNode) {

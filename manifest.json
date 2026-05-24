@@ -46,6 +46,7 @@
         "src/content/modules/modal.js",
         "src/content/modules/progress.js",
         "src/content/modules/chat-selectors.js",
+        "src/content/modules/api-client.js",
         "src/content/modules/session-manager.js",
         "src/content/modules/floating-panel.js",
         "src/content/modules/ui-controller.js",

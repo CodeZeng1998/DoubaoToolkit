@@ -10,6 +10,7 @@
   const modal = toolkit.modal;
   const progress = toolkit.progress;
   const chatSelectors = toolkit.chatSelectors;
+  const apiClient = toolkit.apiClient;
 
   class SessionManager {
     constructor() {
@@ -245,29 +246,36 @@
       const total = targets.length;
 
       if (mode === "all") {
-        for (let index = 0; index < total; index += 1) {
+        const failedIds = new Set();
+        let totalEstimate = total;
+        while (true) {
           this.refreshSessions();
-          const current = Array.from(this.sessionMap.values())[0];
+          const current = Array.from(this.sessionMap.values()).find((item) => !failedIds.has(item.id));
           if (!current) {
-            done = total;
-            progress.update(done, total, failed);
+            progress.update(done, Math.max(done, totalEstimate), failed);
             break;
           }
+          totalEstimate = Math.max(totalEstimate, done + this.sessionMap.size);
           try {
             await this.deleteSingleSession(current);
           } catch (error) {
             failed += 1;
+            failedIds.add(current.id);
             logger.error("Delete all failed on session:", current.title, error);
           } finally {
             done += 1;
-            progress.update(done, total, failed);
+            progress.update(done, Math.max(done, totalEstimate), failed);
           }
         }
       } else {
-        const selectedQueue = targets.map((item) => ({ id: item.id, title: item.title }));
+        const selectedQueue = targets.map((item) => ({
+          id: item.id,
+          title: item.title,
+          conversationId: item.conversationId
+        }));
         for (const queueItem of selectedQueue) {
           this.refreshSessions();
-          const current = this.resolveTargetForSelected(queueItem.id, queueItem.title);
+          const current = this.resolveTargetForSelected(queueItem.id, queueItem.title) || queueItem;
           if (!current) {
             failed += 1;
             done += 1;
@@ -513,35 +521,76 @@
       return !this.isSessionPresent(target);
     }
 
+    forgetDeletedSession(target) {
+      if (!target) {
+        return;
+      }
+      if (target.id) {
+        this.selectedIds.delete(target.id);
+        this.sessionMap.delete(target.id);
+      }
+      if (target.element instanceof HTMLElement && document.body.contains(target.element)) {
+        target.element.remove();
+      }
+      this.emitState();
+    }
+
+    async deleteSingleSessionViaApi(target) {
+      if (!apiClient?.deleteConversation) {
+        throw new Error("Delete API client is unavailable.");
+      }
+      if (!target?.conversationId) {
+        throw new Error("Session has no conversation id.");
+      }
+      await apiClient.deleteConversation(target.conversationId);
+      this.forgetDeletedSession(target);
+      await retry.sleep(config.timing.deleteStepDelayMs);
+    }
+
+    async deleteSingleSessionViaUi(target, attempt) {
+      const sessionNode = target?.element;
+      if (!sessionNode || !document.body.contains(sessionNode)) {
+        throw new Error(`Session node missing at attempt ${attempt}.`);
+      }
+      const menuOpened = await this.openDeleteMenuForSession(target);
+      if (menuOpened) {
+        await this.clickDeleteAction(sessionNode, attempt > 1);
+      } else {
+        logger.warn(
+          "Menu open failed; trying keyboard delete fallback.",
+          target.title,
+          "triggers:",
+          this.getMenuTriggerNodes(target).length
+        );
+        await this.clickDeleteActionByKeyboard(sessionNode);
+      }
+      const clickedConfirm = await this.clickConfirmDelete();
+      if (!clickedConfirm) {
+        await retry.sleep(config.timing.deleteStepDelayMs);
+      }
+      const removed = await this.waitForSessionRemoved(target);
+      if (!removed) {
+        throw new Error("Session still exists after delete action.");
+      }
+    }
+
     async deleteSingleSession(target) {
       const operation = async (attempt) => {
         this.refreshSessions();
         const liveTarget = this.resolveTargetForSelected(target?.id, target?.title) || target;
-        const sessionNode = liveTarget?.element;
-        if (!sessionNode || !document.body.contains(sessionNode)) {
-          throw new Error(`Session node missing at attempt ${attempt}.`);
+        logger.debug("Delete attempt", attempt, "for", liveTarget?.title || liveTarget?.conversationId);
+
+        try {
+          await this.deleteSingleSessionViaApi(liveTarget);
+          return;
+        } catch (apiError) {
+          logger.warn("Delete API failed; falling back to UI delete.", apiError);
+          if (!config?.api?.fallbackToUi) {
+            throw apiError;
+          }
         }
-        logger.debug("Delete attempt", attempt, "for", liveTarget.title);
-        const menuOpened = await this.openDeleteMenuForSession(liveTarget);
-        if (menuOpened) {
-          await this.clickDeleteAction(sessionNode, attempt > 1);
-        } else {
-          logger.warn(
-            "Menu open failed; trying keyboard delete fallback.",
-            liveTarget.title,
-            "triggers:",
-            this.getMenuTriggerNodes(liveTarget).length
-          );
-          await this.clickDeleteActionByKeyboard(sessionNode);
-        }
-        const clickedConfirm = await this.clickConfirmDelete();
-        if (!clickedConfirm) {
-          await retry.sleep(config.timing.deleteStepDelayMs);
-        }
-        const removed = await this.waitForSessionRemoved(liveTarget);
-        if (!removed) {
-          throw new Error("Session still exists after delete action.");
-        }
+
+        await this.deleteSingleSessionViaUi(liveTarget, attempt);
       };
 
       await retry.retryAsync(operation, {

@@ -15,7 +15,25 @@
       deleteStepDelayMs: 300,
       menuOpenTimeoutMs: 1200,
       waitForNodePollMs: 80,
-      deleteResultTimeoutMs: 2600
+      deleteResultTimeoutMs: 2600,
+      apiRequestTimeoutMs: 8000
+    },
+    api: {
+      deleteEndpoint: "/samantha/thread/delete",
+      fallbackToUi: true,
+      deleteQueryDefaults: {
+        version_code: "20800",
+        language: "zh",
+        device_platform: "web",
+        aid: "497858",
+        real_aid: "497858",
+        pc_version: "2.13.2",
+        pkg_type: "release_version",
+        "use-olympus-account": "1",
+        region: "CN",
+        sys_region: "CN",
+        samantha_web: "1"
+      }
     },
     selectors: {
       sessionListRoots: [
@@ -27,8 +45,12 @@
         "[class*='sidebar']"
       ],
       sessionItemCandidates: [
+        "[data-testid='chat_list_thread_item']",
+        "[data-testid*='chat_list_thread']",
         "[data-testid*='conversation-item']",
         "[data-testid*='history-item']",
+        "[id^='thread_']",
+        "[id*='conversation']",
         "[role='listitem']",
         "a[href*='conversation']",
         "a[href*='chat']",
