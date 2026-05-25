@@ -20,6 +20,10 @@
       } catch (error) {
         lastError = error;
         if (attempt < maxAttempts) {
+          global.DoubaoToolkit?.toast?.show?.(`操作失败，正在重试 ${attempt + 1}/${maxAttempts}...`, "warning", 1400, {
+            title: "重试详情",
+            details: error?.message || "未知错误"
+          });
           await sleep(intervalMs);
         }
       }

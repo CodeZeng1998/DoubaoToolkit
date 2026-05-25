@@ -27,6 +27,15 @@
     unknown: "未知失败"
   };
 
+  const FAILURE_SUGGESTIONS = {
+    api_failed: "检查网络连接，刷新豆包页面后重试；若仍失败，工具会自动尝试 UI 删除回退。",
+    missing_conversation_id: "当前对话节点缺少可识别 ID，可刷新页面或改用页面内菜单删除。",
+    node_changed: "对话列表在删除过程中被刷新或重排，请等待页面稳定后重试。",
+    auth_expired: "登录状态可能已失效，请重新登录豆包后再执行删除。",
+    ui_fallback_failed: "页面菜单或确认按钮可能发生变化，请更新选择后重试。",
+    unknown: "查看导出的日志以定位具体失败位置。"
+  };
+
   class SessionManager {
     constructor() {
       this.multiSelectMode = false;
@@ -35,6 +44,8 @@
       this.isDeleting = false;
       this.observer = null;
       this.refreshTimer = null;
+      this.selectionRenderTimer = null;
+      this.selectionRenderToken = 0;
       this.lastKnownUrl = location.href;
       this.deleteAllUnlocked = this.readDeleteAllUnlocked();
       this.incognitoModeEnabled = this.readBooleanSetting(INCOGNITO_ENABLED_KEY, false);
@@ -169,10 +180,45 @@
     }
 
     renderSelectionControls() {
-      for (const session of this.sessionMap.values()) {
+      const token = ++this.selectionRenderToken;
+      const sessions = Array.from(this.sessionMap.values());
+      const viewportHeight = window.innerHeight || 800;
+      const sortedSessions = sessions.sort((a, b) => {
+        const aRect = a?.element instanceof HTMLElement ? a.element.getBoundingClientRect() : { top: 999999 };
+        const bRect = b?.element instanceof HTMLElement ? b.element.getBoundingClientRect() : { top: 999999 };
+        const aVisible = aRect.bottom >= -120 && aRect.top <= viewportHeight + 120;
+        const bVisible = bRect.bottom >= -120 && bRect.top <= viewportHeight + 120;
+        if (aVisible !== bVisible) {
+          return aVisible ? -1 : 1;
+        }
+        return aRect.top - bRect.top;
+      });
+
+      if (this.selectionRenderTimer) {
+        window.clearTimeout(this.selectionRenderTimer);
+        this.selectionRenderTimer = null;
+      }
+
+      const renderBatch = (startIndex) => {
+        if (token !== this.selectionRenderToken) {
+          return;
+        }
+        const batch = sortedSessions.slice(startIndex, startIndex + 50);
+        for (const session of batch) {
+          this.renderSelectionControl(session);
+        }
+        if (startIndex + batch.length < sortedSessions.length) {
+          this.selectionRenderTimer = window.setTimeout(() => renderBatch(startIndex + batch.length), 16);
+        }
+      };
+
+      renderBatch(0);
+    }
+
+    renderSelectionControl(session) {
         const item = session.element;
         if (!(item instanceof HTMLElement)) {
-          continue;
+          return;
         }
         item.classList.toggle("dtk-session-selected", this.selectedIds.has(session.id));
         let checkbox = item.querySelector(".dtk-session-checkbox");
@@ -181,7 +227,7 @@
           if (checkbox) {
             checkbox.remove();
           }
-          continue;
+          return;
         }
 
         if (!checkbox) {
@@ -189,6 +235,8 @@
           checkbox.type = "button";
           checkbox.className = "dtk-session-checkbox";
           checkbox.title = "选择对话";
+          checkbox.setAttribute("role", "checkbox");
+          checkbox.setAttribute("aria-label", `选择对话：${session.title || "未命名对话"}`);
           checkbox.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -197,7 +245,6 @@
           item.insertBefore(checkbox, item.firstChild);
         }
         checkbox.setAttribute("aria-checked", String(this.selectedIds.has(session.id)));
-      }
     }
 
     getDeleteTargets(mode) {
@@ -413,6 +460,28 @@
       return parts.join("、");
     }
 
+    createFailureDetail(error, target) {
+      const category = this.getFailureCategory(error);
+      return {
+        category,
+        label: FAILURE_LABELS[category] || FAILURE_LABELS.unknown,
+        title: target?.title || target?.id || "未命名对话",
+        message: error?.message || "未知错误",
+        suggestion: FAILURE_SUGGESTIONS[category] || FAILURE_SUGGESTIONS.unknown
+      };
+    }
+
+    formatFailureDetails(details, summary) {
+      const reasonText = this.formatFailureSummary(summary) || "未知失败";
+      const suggestions = Array.from(new Set(details.map((item) => `- ${item.label}：${item.suggestion}`))).join("\n");
+      const items = details
+        .slice(0, 30)
+        .map((item, index) => `${index + 1}. ${item.title}\n   原因：${item.label} - ${item.message}`)
+        .join("\n");
+      const moreText = details.length > 30 ? `\n...还有 ${details.length - 30} 条失败记录，请导出日志查看。` : "";
+      return `失败概览：${reasonText}\n\n解决建议：\n${suggestions || "- 暂无建议"}\n\n失败明细：\n${items || "暂无明细"}${moreText}`;
+    }
+
     async confirmDelete(mode, targets) {
       const label = mode === "all" ? "确定删除全部对话？" : `确定删除已选的 ${targets.length} 个对话？`;
       return modal.confirm({
@@ -485,6 +554,7 @@
       let done = 0;
       let failed = 0;
       const failureSummary = {};
+      const failureDetails = [];
       const total = targets.length;
 
       if (mode === "all") {
@@ -504,6 +574,7 @@
             failed += 1;
             failedIds.add(current.id);
             this.addFailureSummary(failureSummary, error);
+            failureDetails.push(this.createFailureDetail(error, current));
             logger.error("Delete all failed on session:", current.title, error);
           } finally {
             done += 1;
@@ -522,10 +593,9 @@
           if (!current) {
             failed += 1;
             done += 1;
-            this.addFailureSummary(
-              failureSummary,
-              this.createFailureError("node_changed", "Selected target no longer exists.")
-            );
+            const error = this.createFailureError("node_changed", "Selected target no longer exists.");
+            this.addFailureSummary(failureSummary, error);
+            failureDetails.push(this.createFailureDetail(error, queueItem));
             progress.update(done, total, failed);
             logger.warn("Selected target no longer exists:", queueItem.id);
             continue;
@@ -535,6 +605,7 @@
           } catch (error) {
             failed += 1;
             this.addFailureSummary(failureSummary, error);
+            failureDetails.push(this.createFailureDetail(error, current));
             logger.error("Delete selected failed on session:", current.title, error);
           } finally {
             done += 1;
@@ -554,7 +625,11 @@
       } else {
         const reasonText = this.formatFailureSummary(failureSummary);
         const prefix = options.source === "incognito" ? "无痕模式自动清理" : "已删除";
-        toast.show(`${prefix} ${done - failed}/${done} 个对话，失败 ${failed} 个。${reasonText ? `原因：${reasonText}。` : ""}`, "error", 5200);
+        toast.show(`${prefix} ${done - failed}/${done} 个对话，失败 ${failed} 个。${reasonText ? `原因：${reasonText}。` : ""}`, "error", 7000, {
+          title: "删除失败详情",
+          details: this.formatFailureDetails(failureDetails, failureSummary),
+          exportLogs: true
+        });
       }
 
       return {
@@ -562,7 +637,8 @@
         done,
         failed,
         total,
-        failureSummary
+        failureSummary,
+        failureDetails
       };
     }
 

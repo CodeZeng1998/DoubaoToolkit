@@ -9,6 +9,8 @@
   --dtk-success: #24a66a;
   --dtk-warning: #ff9f1a;
   --dtk-shadow: 0 8px 24px rgba(15, 25, 40, 0.15);
+  --dtk-panel-opacity: 0.96;
+  --dtk-panel-opacity-percent: 96%;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,6 +25,25 @@
     --dtk-success: #46c890;
     --dtk-warning: #ffb84b;
     --dtk-shadow: 0 10px 26px rgba(0, 0, 0, 0.38);
+  }
+}
+
+:root.dtk-high-contrast {
+  --dtk-bg: #ffffff;
+  --dtk-bg-soft: #f0f0f0;
+  --dtk-text: #000000;
+  --dtk-text-muted: #222222;
+  --dtk-border: #000000;
+  --dtk-danger: #b00020;
+  --dtk-success: #005c2f;
+  --dtk-warning: #7a4a00;
+  --dtk-shadow: 0 0 0 2px #000000;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --dtk-border: currentColor;
+    --dtk-shadow: 0 0 0 2px color-mix(in srgb, var(--dtk-text) 75%, transparent);
   }
 }
 
@@ -47,8 +68,8 @@
 }
 
 .dtk-session-checkbox {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   margin-right: 8px;
   border: 1px solid var(--dtk-border);
   background: var(--dtk-bg);
@@ -61,6 +82,7 @@
 .dtk-session-checkbox[aria-checked="true"] {
   border-color: var(--dtk-primary);
   background: color-mix(in srgb, var(--dtk-primary) 13%, var(--dtk-bg));
+  animation: dtk-ripple 0.42s ease-out;
 }
 
 .dtk-session-checkbox[aria-checked="true"]::after {
@@ -78,6 +100,18 @@
 .dtk-multi-select-enabled .dtk-session-selected {
   outline: 1px solid color-mix(in srgb, var(--dtk-primary) 70%, transparent);
   border-radius: 10px;
+  position: relative;
+}
+
+.dtk-multi-select-enabled .dtk-session-selected::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 1px solid color-mix(in srgb, var(--dtk-primary) 50%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  animation: dtk-selection-pulse 0.5s ease-out;
 }
 
 .dtk-toast-container {
@@ -105,6 +139,27 @@
   animation: dtk-slide-in 0.18s ease;
 }
 
+.dtk-toast-clickable {
+  cursor: pointer;
+}
+
+.dtk-toast-clickable:focus-visible,
+.dtk-mini-btn:focus-visible,
+.dtk-btn:focus-visible,
+.dtk-icon-btn:focus-visible,
+.dtk-floating-toggle:focus-visible,
+.dtk-session-checkbox:focus-visible {
+  outline: 2px solid var(--dtk-primary);
+  outline-offset: 2px;
+}
+
+.dtk-toast-detail-hint {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--dtk-primary);
+}
+
 .dtk-toast-info {
   border-left-color: var(--dtk-primary);
 }
@@ -127,6 +182,60 @@
   transition: all 0.18s ease;
 }
 
+.dtk-toast-detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000000;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 12, 20, 0.42);
+}
+
+.dtk-toast-detail-dialog {
+  width: min(560px, calc(100vw - 28px));
+  max-height: min(680px, calc(100vh - 28px));
+  overflow: auto;
+  background: var(--dtk-bg);
+  color: var(--dtk-text);
+  border: 1px solid var(--dtk-border);
+  border-radius: 14px;
+  box-shadow: var(--dtk-shadow);
+  padding: 16px;
+}
+
+.dtk-toast-detail-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.dtk-toast-detail-message {
+  font-size: 13px;
+  color: var(--dtk-text-muted);
+  margin-bottom: 10px;
+}
+
+.dtk-toast-detail-body {
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--dtk-bg-soft);
+  border: 1px solid var(--dtk-border);
+  border-radius: 10px;
+  padding: 10px;
+  color: var(--dtk-text);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.dtk-toast-detail-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .dtk-modal-overlay {
   position: fixed;
   inset: 0;
@@ -134,6 +243,7 @@
   display: grid;
   place-items: center;
   z-index: 999999;
+  animation: dtk-fade-in 0.16s ease;
 }
 
 .dtk-modal {
@@ -143,6 +253,7 @@
   box-shadow: var(--dtk-shadow);
   border-radius: 16px;
   padding: 18px;
+  animation: dtk-modal-pop 0.2s ease;
 }
 
 .dtk-modal-title {
@@ -185,6 +296,25 @@
 .dtk-btn-danger {
   background: var(--dtk-danger);
   color: #fff;
+}
+
+.dtk-btn-arming {
+  position: relative;
+  overflow: hidden;
+  opacity: 0.78;
+}
+
+.dtk-btn-arming::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: rgba(255, 255, 255, 0.35);
+  animation: dtk-arm-confirm 0.52s linear forwards;
+}
+
+.dtk-btn-armed {
+  animation: dtk-danger-ready 0.28s ease;
 }
 
 .dtk-btn-ghost {
@@ -243,6 +373,12 @@
   color: var(--dtk-text-muted);
 }
 
+.dtk-progress-meta {
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--dtk-text-muted);
+}
+
 @keyframes dtk-slide-in {
   from {
     opacity: 0;
@@ -257,6 +393,65 @@
 @keyframes dtk-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes dtk-ripple {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--dtk-primary) 38%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 12px transparent;
+  }
+}
+
+@keyframes dtk-selection-pulse {
+  0% {
+    opacity: 0.75;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes dtk-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dtk-modal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dtk-arm-confirm {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes dtk-danger-ready {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  35% {
+    transform: translateX(-2px);
+  }
+  70% {
+    transform: translateX(2px);
   }
 }
 
@@ -326,19 +521,24 @@
 
 .dtk-floating-panel {
   position: absolute;
-  width: min(280px, calc(100vw - 24px));
+  width: min(var(--dtk-panel-width, 300px), calc(100vw - 24px));
+  height: var(--dtk-panel-height, auto);
   max-width: calc(100vw - 24px);
   max-height: calc(100vh - 24px);
   overflow: auto;
   border: 1px solid var(--dtk-border);
   border-radius: 14px;
-  background: var(--dtk-bg);
+  background: color-mix(in srgb, var(--dtk-bg) var(--dtk-panel-opacity-percent), transparent);
+  backdrop-filter: blur(14px);
   box-shadow: var(--dtk-shadow);
   padding: 12px;
   opacity: 0;
   transform: translateY(8px) scale(0.98);
   pointer-events: none;
-  transition: all 0.16s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    height 0.2s ease;
 }
 
 .dtk-floating-root.align-left .dtk-floating-panel {
@@ -386,6 +586,26 @@
   color: var(--dtk-text);
 }
 
+.dtk-floating-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dtk-icon-btn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--dtk-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dtk-text);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
 .dtk-floating-status {
   font-size: 12px;
   color: var(--dtk-text-muted);
@@ -425,6 +645,7 @@
   border: 1px solid transparent;
   border-radius: 9px;
   font-size: 12px;
+  min-height: 32px;
   padding: 7px 8px;
   cursor: pointer;
 }
@@ -475,7 +696,9 @@
 }
 
 .dtk-toggle-row,
-.dtk-interval-row {
+.dtk-interval-row,
+.dtk-color-row,
+.dtk-range-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -484,12 +707,13 @@
 }
 
 .dtk-toggle-row input {
-  width: 15px;
-  height: 15px;
+  width: 18px;
+  height: 18px;
   margin: 0;
 }
 
-.dtk-interval-row input {
+.dtk-interval-row input,
+.dtk-range-row input {
   width: 72px;
   min-width: 0;
   border: 1px solid var(--dtk-border);
@@ -500,8 +724,148 @@
   font-size: 12px;
 }
 
+.dtk-color-row input {
+  width: 36px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--dtk-border);
+  border-radius: 8px;
+  background: transparent;
+}
+
+.dtk-range-row input {
+  flex: 1;
+  padding: 0;
+  border: none;
+}
+
 .dtk-incognito-status {
   font-size: 11px;
   line-height: 1.4;
   color: var(--dtk-text-muted);
+}
+
+.dtk-panel-resize {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+}
+
+.dtk-panel-resize::before {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--dtk-border);
+  border-bottom: 2px solid var(--dtk-border);
+}
+
+.dtk-onboarding-tip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  width: 220px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--dtk-bg);
+  color: var(--dtk-text);
+  border: 1px solid var(--dtk-border);
+  box-shadow: var(--dtk-shadow);
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(6px);
+  transition: all 0.2s ease;
+}
+
+.dtk-floating-root.show-onboarding .dtk-onboarding-tip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.dtk-floating-root.drawer-mode {
+  left: auto !important;
+  top: auto !important;
+  right: 16px !important;
+  bottom: 18px !important;
+}
+
+.dtk-floating-root.drawer-mode .dtk-floating-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  width: 100vw;
+  height: min(72vh, 560px);
+  max-width: none;
+  max-height: 78vh;
+  border-radius: 16px 16px 0 0;
+  padding: 16px;
+  transform: translateY(100%);
+  transform-origin: bottom center;
+}
+
+.dtk-floating-root.drawer-mode.open .dtk-floating-panel {
+  transform: translateY(0);
+}
+
+.dtk-floating-root.drawer-mode .dtk-panel-resize {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .dtk-mini-btn,
+  .dtk-btn,
+  .dtk-icon-btn {
+    min-height: 42px;
+  }
+
+  .dtk-session-checkbox {
+    width: 28px;
+    height: 28px;
+  }
+
+  .dtk-floating-toggle {
+    width: 58px;
+    height: 58px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 480px) {
+  .dtk-floating-root.drawer-mode .dtk-floating-panel {
+    height: 86vh;
+    max-height: 86vh;
+  }
+
+  .dtk-floating-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dtk-page-badge,
+  .dtk-page-badge::before,
+  .dtk-page-badge::after,
+  .dtk-session-checkbox,
+  .dtk-session-checkbox::before,
+  .dtk-session-checkbox::after,
+  .dtk-toast-container *,
+  .dtk-modal-overlay,
+  .dtk-modal-overlay *,
+  .dtk-progress-overlay,
+  .dtk-progress-overlay *,
+  .dtk-floating-root,
+  .dtk-floating-root *,
+  .dtk-floating-root *::before,
+  .dtk-floating-root *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
 }
