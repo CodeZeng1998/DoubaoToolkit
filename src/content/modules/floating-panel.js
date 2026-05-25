@@ -62,7 +62,7 @@
       const root = document.createElement("div");
       root.className = "dtk-floating-root";
       root.innerHTML = `
-        <button type="button" class="dtk-floating-toggle" aria-label="豆包工具箱，拖动移动，点击展开">
+        <button type="button" class="dtk-floating-toggle" aria-label="豆包工具箱，拖动移动，悬停或点击展开">
           <span class="dtk-floating-dot">工具</span>
           <span class="dtk-floating-count" aria-live="polite">0</span>
         </button>
@@ -314,12 +314,16 @@
       this.writeString(HIGH_CONTRAST_KEY, Boolean(enabled));
     }
 
-    setPanelOpen(open) {
+    canHoverOpen() {
+      return !this.isDrawerMode() && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    }
+
+    setPanelOpen(open, options = {}) {
       this.panelOpen = Boolean(open);
       this.updatePanelPlacement();
       this.root.classList.toggle("open", this.panelOpen);
       this.toggleBtn.setAttribute("aria-expanded", String(this.panelOpen));
-      if (this.panelOpen) {
+      if (this.panelOpen && options.focus !== false) {
         window.setTimeout(() => this.modeBtn.focus(), 0);
       }
     }
@@ -403,6 +407,11 @@
     }
 
     bind() {
+      this.toggleBtn.addEventListener("pointerenter", () => {
+        if (!this.panelOpen && !this.dragState && this.canHoverOpen()) {
+          this.setPanelOpen(true, { focus: false });
+        }
+      });
       this.toggleBtn.addEventListener("pointerdown", (event) => this.beginDrag(event));
       this.toggleBtn.addEventListener("pointermove", (event) => this.onDragging(event));
       this.toggleBtn.addEventListener("pointerup", (event) => {

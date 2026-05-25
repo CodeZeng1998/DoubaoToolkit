@@ -95,6 +95,12 @@
       }, config.timing.sessionRefreshDebounceMs);
     }
 
+    schedulePageReloadAfterDeleteAll() {
+      window.setTimeout(() => {
+        location.reload();
+      }, 900);
+    }
+
     startDomObserver() {
       if (this.observer) {
         return;
@@ -622,6 +628,9 @@
 
       if (failed === 0) {
         toast.show(options.source === "incognito" ? `无痕模式已清理 ${done} 个对话。` : `已删除 ${done} 个对话。`, "success");
+        if (mode === "all" && options.source !== "incognito") {
+          this.schedulePageReloadAfterDeleteAll();
+        }
       } else {
         const reasonText = this.formatFailureSummary(failureSummary);
         const prefix = options.source === "incognito" ? "无痕模式自动清理" : "已删除";
