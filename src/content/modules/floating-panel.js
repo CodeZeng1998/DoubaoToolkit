@@ -35,6 +35,7 @@
       this.selectedNode = null;
       this.statusNode = null;
       this.opacityInput = null;
+      this.opacityValueNode = null;
       this.themeColorInput = null;
       this.highContrastToggle = null;
       this.resizer = null;
@@ -117,7 +118,8 @@
               </label>
               <label class="dtk-range-row">
                 <span>透明度</span>
-                <input type="range" data-action="opacity" min="72" max="100" step="2" aria-label="面板透明度" />
+                <input type="range" data-action="opacity" min="35" max="100" step="5" aria-label="面板透明度" />
+                <span class="dtk-opacity-value">96%</span>
               </label>
               <label class="dtk-toggle-row">
                 <input type="checkbox" data-action="high-contrast" aria-label="高对比度模式" />
@@ -146,6 +148,7 @@
       this.selectedNode = root.querySelector(".dtk-metric-selected");
       this.statusNode = root.querySelector(".dtk-floating-status");
       this.opacityInput = root.querySelector("[data-action='opacity']");
+      this.opacityValueNode = root.querySelector(".dtk-opacity-value");
       this.themeColorInput = root.querySelector("[data-action='theme-color']");
       this.highContrastToggle = root.querySelector("[data-action='high-contrast']");
       this.resizer = root.querySelector(".dtk-panel-resize");
@@ -262,7 +265,7 @@
     }
 
     applyPreferences() {
-      const opacity = this.readNumber(OPACITY_KEY, 96, 72, 100);
+      const opacity = this.readNumber(OPACITY_KEY, 96, 35, 100);
       const color = this.readString(THEME_COLOR_KEY, "#1f6fff");
       const highContrast = this.readString(HIGH_CONTRAST_KEY, "false") === "true";
       this.opacityInput.value = String(opacity);
@@ -298,9 +301,12 @@
     }
 
     applyOpacity(value) {
-      const opacity = Math.min(Math.max(Number(value) || 96, 72), 100) / 100;
+      const opacity = Math.min(Math.max(Number(value) || 96, 35), 100) / 100;
       document.documentElement.style.setProperty("--dtk-panel-opacity", String(opacity));
       document.documentElement.style.setProperty("--dtk-panel-opacity-percent", `${Math.round(opacity * 100)}%`);
+      if (this.opacityValueNode) {
+        this.opacityValueNode.textContent = `${Math.round(opacity * 100)}%`;
+      }
       this.writeString(OPACITY_KEY, Math.round(opacity * 100));
     }
 

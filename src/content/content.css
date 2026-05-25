@@ -1,5 +1,6 @@
 :root {
   --dtk-bg: #ffffff;
+  --dtk-bg-rgb: 255, 255, 255;
   --dtk-bg-soft: #f5f7fb;
   --dtk-text: #1d2330;
   --dtk-text-muted: #6a7386;
@@ -16,6 +17,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --dtk-bg: #171a22;
+    --dtk-bg-rgb: 23, 26, 34;
     --dtk-bg-soft: #202633;
     --dtk-text: #f2f5ff;
     --dtk-text-muted: #aeb7c8;
@@ -30,6 +32,7 @@
 
 :root.dtk-high-contrast {
   --dtk-bg: #ffffff;
+  --dtk-bg-rgb: 255, 255, 255;
   --dtk-bg-soft: #f0f0f0;
   --dtk-text: #000000;
   --dtk-text-muted: #222222;
@@ -528,7 +531,7 @@
   overflow: auto;
   border: 1px solid var(--dtk-border);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--dtk-bg) var(--dtk-panel-opacity-percent), transparent);
+  background: rgba(var(--dtk-bg-rgb), var(--dtk-panel-opacity));
   backdrop-filter: blur(14px);
   box-shadow: var(--dtk-shadow);
   padding: 12px;
@@ -737,6 +740,12 @@
   flex: 1;
   padding: 0;
   border: none;
+}
+
+.dtk-opacity-value {
+  min-width: 34px;
+  text-align: right;
+  color: var(--dtk-text-muted);
 }
 
 .dtk-incognito-status {
