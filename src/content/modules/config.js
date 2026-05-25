@@ -2,7 +2,7 @@
   "use strict";
 
   const CONFIG = {
-    appName: "Doubao Toolkit",
+    appName: "豆包工具箱",
     namespace: "doubao-toolkit",
     debug: true,
     retry: {

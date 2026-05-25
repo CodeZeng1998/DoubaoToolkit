@@ -26,7 +26,7 @@
     }
     const badge = document.createElement("div");
     badge.className = "dtk-page-badge";
-    badge.textContent = `${config.appName} Ready`;
+    badge.textContent = "豆包工具箱已就绪";
     document.body.appendChild(badge);
     window.setTimeout(() => badge.classList.add("hidden"), 1800);
   }
@@ -41,7 +41,7 @@
     uiController.bindMessageHandlers();
     floatingPanel?.init?.();
     createPageBadge();
-    toast.show(`${config.appName} is running.`, "success", 1400);
+    toast.show("豆包工具箱正在运行。", "success", 1400);
     logger.info("Bootstrap complete.");
   }
 

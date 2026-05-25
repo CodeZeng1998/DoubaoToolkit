@@ -132,6 +132,26 @@
     }
   }
 
+  function createApiError(category, message, details = {}) {
+    const error = new Error(message);
+    error.failureCategory = category;
+    Object.assign(error, details);
+    return error;
+  }
+
+  function isAuthFailureText(value) {
+    const text = String(value || "").toLowerCase();
+    return (
+      text.includes("login") ||
+      text.includes("auth") ||
+      text.includes("unauthorized") ||
+      text.includes("forbidden") ||
+      text.includes("登录") ||
+      text.includes("权限") ||
+      text.includes("未授权")
+    );
+  }
+
   function assertBusinessSuccess(payload) {
     if (!payload || typeof payload !== "object") {
       return;
@@ -141,13 +161,14 @@
       return;
     }
     const message = payload.message || payload.msg || payload.status_msg || "Delete request was rejected.";
-    throw new Error(`${message} (${code})`);
+    const category = isAuthFailureText(message) ? "auth_expired" : "api_failed";
+    throw createApiError(category, `${message} (${code})`, { businessCode: code, payload });
   }
 
   async function deleteConversation(conversationId) {
     const id = String(conversationId || "").trim();
     if (!/^\d+$/.test(id)) {
-      throw new Error("Missing valid conversation id.");
+      throw createApiError("missing_conversation_id", "Missing valid conversation id.");
     }
 
     const controller = new AbortController();
@@ -172,11 +193,20 @@
 
       const payload = await parseResponse(response);
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        const category = response.status === 401 || response.status === 403 ? "auth_expired" : "api_failed";
+        throw createApiError(category, `HTTP ${response.status}`, { httpStatus: response.status, payload });
       }
       assertBusinessSuccess(payload);
       logger?.debug("Delete API succeeded for conversation:", id);
       return payload;
+    } catch (error) {
+      if (error?.failureCategory) {
+        throw error;
+      }
+      const isTimeout = error?.name === "AbortError";
+      throw createApiError("api_failed", isTimeout ? "Delete request timed out." : error?.message || "Delete request failed.", {
+        cause: error
+      });
     } finally {
       window.clearTimeout(timeoutId);
     }

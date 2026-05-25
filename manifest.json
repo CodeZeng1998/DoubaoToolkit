@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Doubao Toolkit",
-  "description": "Enhance Doubao web chat management with multi-select and bulk-delete flows.",
+  "name": "豆包工具箱",
+  "description": "为豆包网页对话管理增加多选与批量删除能力。",
   "version": "0.1.0",
   "default_locale": "en",
   "permissions": [
@@ -24,7 +24,7 @@
     "128": "assets/icons/icon128.png"
   },
   "action": {
-    "default_title": "Doubao Toolkit",
+    "default_title": "豆包工具箱",
     "default_popup": "src/popup/popup.html",
     "default_icon": {
       "16": "assets/icons/icon16.png",

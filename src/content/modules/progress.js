@@ -32,7 +32,7 @@
 
     show(title) {
       this.ensure();
-      this.titleNode.textContent = title ?? "Processing";
+      this.titleNode.textContent = title ?? "处理中";
       this.detailNode.textContent = "0 / 0";
       this.barNode.style.width = "0%";
       this.root.classList.add("visible");
@@ -43,7 +43,7 @@
       const safeTotal = Math.max(total, 1);
       const percent = Math.max(0, Math.min(100, Math.round((done / safeTotal) * 100)));
       this.barNode.style.width = `${percent}%`;
-      this.detailNode.textContent = `Progress: ${done} / ${total} | Failed: ${failed}`;
+      this.detailNode.textContent = `进度：${done} / ${total} | 失败：${failed}`;
     }
 
     hide() {

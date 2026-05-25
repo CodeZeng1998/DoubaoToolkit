@@ -11,6 +11,21 @@
   const progress = toolkit.progress;
   const chatSelectors = toolkit.chatSelectors;
   const apiClient = toolkit.apiClient;
+  const DELETE_ALL_UNLOCK_KEY = "dtk_delete_all_unlocked_v1";
+  const INCOGNITO_ENABLED_KEY = "dtk_incognito_enabled_v1";
+  const INCOGNITO_INTERVAL_KEY = "dtk_incognito_interval_minutes_v1";
+  const DEFAULT_INCOGNITO_INTERVAL_MINUTES = 10;
+  const MIN_INCOGNITO_INTERVAL_MINUTES = 1;
+  const MAX_INCOGNITO_INTERVAL_MINUTES = 1440;
+
+  const FAILURE_LABELS = {
+    api_failed: "接口失败",
+    missing_conversation_id: "未找到对话 ID",
+    node_changed: "页面节点已变化",
+    auth_expired: "权限/登录失效",
+    ui_fallback_failed: "UI 回退失败",
+    unknown: "未知失败"
+  };
 
   class SessionManager {
     constructor() {
@@ -21,12 +36,23 @@
       this.observer = null;
       this.refreshTimer = null;
       this.lastKnownUrl = location.href;
+      this.deleteAllUnlocked = this.readDeleteAllUnlocked();
+      this.incognitoModeEnabled = this.readBooleanSetting(INCOGNITO_ENABLED_KEY, false);
+      this.incognitoIntervalMinutes = this.readNumberSetting(
+        INCOGNITO_INTERVAL_KEY,
+        DEFAULT_INCOGNITO_INTERVAL_MINUTES,
+        MIN_INCOGNITO_INTERVAL_MINUTES,
+        MAX_INCOGNITO_INTERVAL_MINUTES
+      );
+      this.incognitoTimer = null;
+      this.incognitoNextRunAt = null;
     }
 
     init() {
       this.refreshSessions();
       this.startDomObserver();
       this.startSpaObserver();
+      this.syncIncognitoTimer();
       logger.info("Session manager initialized.");
     }
 
@@ -105,7 +131,7 @@
       }
       this.renderSelectionControls();
       this.emitState();
-      toast.show(this.multiSelectMode ? "Multi-select enabled." : "Multi-select disabled.", "info");
+      toast.show(this.multiSelectMode ? "已开启多选。" : "已关闭多选。", "info");
     }
 
     toggleSessionSelection(sessionId) {
@@ -130,7 +156,7 @@
       }
       this.renderSelectionControls();
       this.emitState();
-      toast.show(`Selected ${this.selectedIds.size} sessions.`, "success");
+      toast.show(`已选择 ${this.selectedIds.size} 个对话。`, "success");
     }
 
     clearSelection(silent = false) {
@@ -138,7 +164,7 @@
       this.renderSelectionControls();
       this.emitState();
       if (!silent) {
-        toast.show("Selection cleared.", "info");
+        toast.show("已清空选择。", "info");
       }
     }
 
@@ -162,7 +188,7 @@
           checkbox = document.createElement("button");
           checkbox.type = "button";
           checkbox.className = "dtk-session-checkbox";
-          checkbox.title = "Select session";
+          checkbox.title = "选择对话";
           checkbox.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -183,13 +209,217 @@
         .filter(Boolean);
     }
 
-    async confirmDelete(mode, targets) {
-      const label = mode === "all" ? "Delete all sessions?" : `Delete ${targets.length} selected sessions?`;
+    readBooleanSetting(key, fallback) {
+      try {
+        const value = localStorage.getItem(key);
+        if (value === null) {
+          return fallback;
+        }
+        return value === "true";
+      } catch (_error) {
+        return fallback;
+      }
+    }
+
+    readNumberSetting(key, fallback, min, max) {
+      try {
+        const value = Number(localStorage.getItem(key));
+        if (!Number.isFinite(value)) {
+          return fallback;
+        }
+        return Math.min(Math.max(Math.round(value), min), max);
+      } catch (_error) {
+        return fallback;
+      }
+    }
+
+    writeSetting(key, value) {
+      try {
+        localStorage.setItem(key, String(value));
+      } catch (_error) {
+        logger?.debug("writeSetting failed:", key);
+      }
+    }
+
+    readDeleteAllUnlocked() {
+      try {
+        return localStorage.getItem(DELETE_ALL_UNLOCK_KEY) === "true";
+      } catch (_error) {
+        return false;
+      }
+    }
+
+    saveDeleteAllUnlocked(value) {
+      this.deleteAllUnlocked = Boolean(value);
+      try {
+        localStorage.setItem(DELETE_ALL_UNLOCK_KEY, String(this.deleteAllUnlocked));
+      } catch (_error) {
+        logger?.debug("saveDeleteAllUnlocked failed.");
+      }
+      this.emitState();
+    }
+
+    async ensureDeleteAllUnlocked() {
+      if (this.deleteAllUnlocked) {
+        return true;
+      }
+      const confirmed = await modal.confirm({
+        title: "启用高风险操作",
+        message: "“全部删除”默认处于安全模式。启用后，本浏览器将允许使用一键删除全部对话；每次删除前仍会显示删除预览并要求再次确认。",
+        confirmText: "启用并继续",
+        cancelText: "取消",
+        danger: true
+      });
+      if (!confirmed) {
+        return false;
+      }
+      this.saveDeleteAllUnlocked(true);
+      toast.show("已启用全部删除。删除前仍需再次确认。", "warning", 3000);
+      return true;
+    }
+
+    async confirmIncognitoEnable() {
       return modal.confirm({
-        title: "Dangerous Operation",
-        message: `${label} This cannot be undone.`,
-        confirmText: "Delete",
-        cancelText: "Cancel",
+        title: "启用无痕模式",
+        message: `无痕模式会在豆包页面打开期间，每 ${this.incognitoIntervalMinutes} 分钟自动删除全部历史对话。此操作无法撤销，且自动执行时不会再次弹出删除确认。`,
+        confirmText: "启用无痕模式",
+        cancelText: "取消",
+        danger: true
+      });
+    }
+
+    async setIncognitoMode(enabled) {
+      const nextEnabled = Boolean(enabled);
+      if (nextEnabled && !this.incognitoModeEnabled) {
+        const confirmed = await this.confirmIncognitoEnable();
+        if (!confirmed) {
+          return {
+            ok: false,
+            reason: "cancelled"
+          };
+        }
+        this.saveDeleteAllUnlocked(true);
+      }
+
+      this.incognitoModeEnabled = nextEnabled;
+      this.writeSetting(INCOGNITO_ENABLED_KEY, this.incognitoModeEnabled);
+      this.syncIncognitoTimer();
+      this.emitState();
+      toast.show(this.incognitoModeEnabled ? "已开启无痕模式。" : "已关闭无痕模式。", "info", 2600);
+      return {
+        ok: true
+      };
+    }
+
+    setIncognitoInterval(minutes) {
+      const value = Math.min(
+        Math.max(Math.round(Number(minutes) || DEFAULT_INCOGNITO_INTERVAL_MINUTES), MIN_INCOGNITO_INTERVAL_MINUTES),
+        MAX_INCOGNITO_INTERVAL_MINUTES
+      );
+      this.incognitoIntervalMinutes = value;
+      this.writeSetting(INCOGNITO_INTERVAL_KEY, value);
+      this.syncIncognitoTimer();
+      this.emitState();
+      toast.show(`无痕模式间隔已设为 ${value} 分钟。`, "info", 2400);
+      return {
+        ok: true,
+        intervalMinutes: value
+      };
+    }
+
+    syncIncognitoTimer() {
+      if (this.incognitoTimer) {
+        window.clearTimeout(this.incognitoTimer);
+        this.incognitoTimer = null;
+      }
+      this.incognitoNextRunAt = null;
+      if (!this.incognitoModeEnabled) {
+        this.emitState();
+        return;
+      }
+      const delayMs = this.incognitoIntervalMinutes * 60 * 1000;
+      this.incognitoNextRunAt = Date.now() + delayMs;
+      this.incognitoTimer = window.setTimeout(() => {
+        this.runIncognitoCleanup();
+      }, delayMs);
+      this.emitState();
+    }
+
+    async runIncognitoCleanup() {
+      this.incognitoTimer = null;
+      if (!this.incognitoModeEnabled) {
+        this.incognitoNextRunAt = null;
+        this.emitState();
+        return;
+      }
+
+      if (this.isDeleting) {
+        logger.warn("Incognito cleanup skipped because delete task is running.");
+        this.syncIncognitoTimer();
+        return;
+      }
+
+      toast.show("无痕模式开始自动清理历史对话。", "warning", 2600);
+      await this.deleteSessions("all", {
+        skipConfirm: true,
+        skipUnlock: true,
+        silentEmpty: true,
+        source: "incognito"
+      });
+      this.syncIncognitoTimer();
+    }
+
+    formatPreviewTitle(target, index) {
+      const title = String(target?.title || "").trim();
+      if (title) {
+        return title.length > 36 ? `${title.slice(0, 36)}...` : title;
+      }
+      return `未命名对话 ${index + 1}`;
+    }
+
+    buildDeletePreviewMessage(mode, targets) {
+      const count = targets.length;
+      const actionText = mode === "all" ? "将删除全部" : "将删除已选";
+      const previewLimit = 5;
+      const previewTitles = targets.slice(0, previewLimit).map((target, index) => this.formatPreviewTitle(target, index));
+      const previewText = previewTitles.length > 0 ? previewTitles.join("、") : "暂无可预览标题";
+      const moreText = count > previewLimit ? ` 等 ${count} 个对话` : "";
+      return `${actionText} ${count} 个对话，包含：${previewText}${moreText}。此操作无法撤销。`;
+    }
+
+    createFailureError(category, message, cause = null) {
+      const error = new Error(message);
+      error.failureCategory = category;
+      if (cause) {
+        error.cause = cause;
+      }
+      return error;
+    }
+
+    getFailureCategory(error) {
+      return error?.failureCategory || error?.cause?.failureCategory || "unknown";
+    }
+
+    addFailureSummary(summary, error) {
+      const category = this.getFailureCategory(error);
+      summary[category] = (summary[category] || 0) + 1;
+      return category;
+    }
+
+    formatFailureSummary(summary) {
+      const parts = Object.entries(summary)
+        .filter(([, count]) => count > 0)
+        .map(([category, count]) => `${FAILURE_LABELS[category] || FAILURE_LABELS.unknown} ${count}`);
+      return parts.join("、");
+    }
+
+    async confirmDelete(mode, targets) {
+      const label = mode === "all" ? "确定删除全部对话？" : `确定删除已选的 ${targets.length} 个对话？`;
+      return modal.confirm({
+        title: "危险操作",
+        message: `${label} ${this.buildDeletePreviewMessage(mode, targets)}`,
+        confirmText: "删除",
+        cancelText: "取消",
         danger: true
       });
     }
@@ -210,9 +440,9 @@
       return null;
     }
 
-    async deleteSessions(mode) {
+    async deleteSessions(mode, options = {}) {
       if (this.isDeleting) {
-        toast.show("A delete task is already running.", "warning");
+        toast.show("已有删除任务正在执行。", "warning");
         return {
           ok: false,
           reason: "busy"
@@ -222,27 +452,39 @@
       this.refreshSessions();
       const targets = this.getDeleteTargets(mode);
       if (targets.length === 0) {
-        toast.show("No sessions to delete.", "warning");
+        if (!options.silentEmpty) {
+          toast.show("没有可删除的对话。", "warning");
+        }
         return {
           ok: false,
           reason: "empty"
         };
       }
 
-      const confirmed = await this.confirmDelete(mode, targets);
-      if (!confirmed) {
+      if (mode === "all" && !options.skipUnlock && !(await this.ensureDeleteAllUnlocked())) {
         return {
           ok: false,
-          reason: "cancelled"
+          reason: "delete_all_locked"
         };
+      }
+
+      if (!options.skipConfirm) {
+        const confirmed = await this.confirmDelete(mode, targets);
+        if (!confirmed) {
+          return {
+            ok: false,
+            reason: "cancelled"
+          };
+        }
       }
 
       this.isDeleting = true;
       this.emitState();
-      progress.show(mode === "all" ? "Deleting all sessions..." : "Deleting selected sessions...");
+      progress.show(options.source === "incognito" ? "无痕模式正在自动清理..." : mode === "all" ? "正在删除全部对话..." : "正在删除已选对话...");
 
       let done = 0;
       let failed = 0;
+      const failureSummary = {};
       const total = targets.length;
 
       if (mode === "all") {
@@ -261,6 +503,7 @@
           } catch (error) {
             failed += 1;
             failedIds.add(current.id);
+            this.addFailureSummary(failureSummary, error);
             logger.error("Delete all failed on session:", current.title, error);
           } finally {
             done += 1;
@@ -279,6 +522,10 @@
           if (!current) {
             failed += 1;
             done += 1;
+            this.addFailureSummary(
+              failureSummary,
+              this.createFailureError("node_changed", "Selected target no longer exists.")
+            );
             progress.update(done, total, failed);
             logger.warn("Selected target no longer exists:", queueItem.id);
             continue;
@@ -287,6 +534,7 @@
             await this.deleteSingleSession(current);
           } catch (error) {
             failed += 1;
+            this.addFailureSummary(failureSummary, error);
             logger.error("Delete selected failed on session:", current.title, error);
           } finally {
             done += 1;
@@ -302,16 +550,19 @@
       this.clearSelection(true);
 
       if (failed === 0) {
-        toast.show(`Deleted ${done} session(s).`, "success");
+        toast.show(options.source === "incognito" ? `无痕模式已清理 ${done} 个对话。` : `已删除 ${done} 个对话。`, "success");
       } else {
-        toast.show(`Deleted ${done - failed}/${done}. Failed: ${failed}.`, "error", 3600);
+        const reasonText = this.formatFailureSummary(failureSummary);
+        const prefix = options.source === "incognito" ? "无痕模式自动清理" : "已删除";
+        toast.show(`${prefix} ${done - failed}/${done} 个对话，失败 ${failed} 个。${reasonText ? `原因：${reasonText}。` : ""}`, "error", 5200);
       }
 
       return {
         ok: failed === 0,
         done,
         failed,
-        total
+        total,
+        failureSummary
       };
     }
 
@@ -537,10 +788,10 @@
 
     async deleteSingleSessionViaApi(target) {
       if (!apiClient?.deleteConversation) {
-        throw new Error("Delete API client is unavailable.");
+        throw this.createFailureError("api_failed", "Delete API client is unavailable.");
       }
       if (!target?.conversationId) {
-        throw new Error("Session has no conversation id.");
+        throw this.createFailureError("missing_conversation_id", "Session has no conversation id.");
       }
       await apiClient.deleteConversation(target.conversationId);
       this.forgetDeletedSession(target);
@@ -550,7 +801,7 @@
     async deleteSingleSessionViaUi(target, attempt) {
       const sessionNode = target?.element;
       if (!sessionNode || !document.body.contains(sessionNode)) {
-        throw new Error(`Session node missing at attempt ${attempt}.`);
+        throw this.createFailureError("node_changed", `Session node missing at attempt ${attempt}.`);
       }
       const menuOpened = await this.openDeleteMenuForSession(target);
       if (menuOpened) {
@@ -570,7 +821,7 @@
       }
       const removed = await this.waitForSessionRemoved(target);
       if (!removed) {
-        throw new Error("Session still exists after delete action.");
+        throw this.createFailureError("ui_fallback_failed", "Session still exists after delete action.");
       }
     }
 
@@ -590,7 +841,14 @@
           }
         }
 
-        await this.deleteSingleSessionViaUi(liveTarget, attempt);
+        try {
+          await this.deleteSingleSessionViaUi(liveTarget, attempt);
+        } catch (uiError) {
+          if (uiError?.failureCategory) {
+            throw uiError;
+          }
+          throw this.createFailureError("ui_fallback_failed", uiError?.message || "UI fallback failed.", uiError);
+        }
       };
 
       await retry.retryAsync(operation, {
@@ -605,6 +863,10 @@
         selectedCount: this.selectedIds.size,
         totalSessions: this.sessionMap.size,
         isDeleting: this.isDeleting,
+        deleteAllUnlocked: this.deleteAllUnlocked,
+        incognitoModeEnabled: this.incognitoModeEnabled,
+        incognitoIntervalMinutes: this.incognitoIntervalMinutes,
+        incognitoNextRunAt: this.incognitoNextRunAt,
         url: location.href
       };
     }

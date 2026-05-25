@@ -14,11 +14,11 @@
     }
 
     confirm(options = {}) {
-      const title = options.title ?? "Confirm";
-      const message = options.message ?? "Are you sure?";
+      const title = options.title ?? "确认";
+      const message = options.message ?? "确定继续吗？";
       const danger = Boolean(options.danger);
-      const confirmText = options.confirmText ?? "Confirm";
-      const cancelText = options.cancelText ?? "Cancel";
+      const confirmText = options.confirmText ?? "确认";
+      const cancelText = options.cancelText ?? "取消";
 
       if (this.pendingResolver) {
         this.pendingResolver(false);

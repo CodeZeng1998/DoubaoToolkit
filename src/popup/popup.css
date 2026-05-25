@@ -80,6 +80,56 @@ body {
   gap: 8px;
 }
 
+.incognito-card {
+  margin-top: 12px;
+  background: var(--p-card);
+  border: 1px solid var(--p-border);
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 9px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.section-header strong {
+  font-size: 13px;
+}
+
+.section-header span {
+  font-size: 11px;
+  color: var(--p-muted);
+}
+
+.toggle-row,
+.interval-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.toggle-row input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+
+.interval-row input {
+  width: 76px;
+  border: 1px solid var(--p-border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: var(--p-card);
+  color: var(--p-text);
+  font-size: 12px;
+}
+
 .btn {
   border-radius: 10px;
   border: 1px solid transparent;
@@ -113,6 +163,14 @@ body {
   background: transparent;
   color: var(--p-danger);
   border-color: color-mix(in srgb, var(--p-danger) 55%, var(--p-border));
+}
+
+.risk-note {
+  grid-column: 1 / -1;
+  margin-top: -2px;
+  color: var(--p-danger);
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .message {

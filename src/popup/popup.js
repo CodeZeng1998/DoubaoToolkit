@@ -5,7 +5,11 @@ const state = {
     totalSessions: 0,
     selectedCount: 0,
     multiSelectMode: false,
-    isDeleting: false
+    isDeleting: false,
+    deleteAllUnlocked: false,
+    incognitoModeEnabled: false,
+    incognitoIntervalMinutes: 10,
+    incognitoNextRunAt: null
   }
 };
 
@@ -24,7 +28,7 @@ async function getActiveTab() {
 
 async function sendToContent(type, payload) {
   if (!state.tabId) {
-    throw new Error("No active tab.");
+    throw new Error("没有可用的当前标签页。");
   }
   return chrome.tabs.sendMessage(state.tabId, { type, payload });
 }
@@ -36,13 +40,32 @@ function applyState(snapshot) {
   };
   $("totalSessions").textContent = String(state.snapshot.totalSessions ?? 0);
   $("selectedSessions").textContent = String(state.snapshot.selectedCount ?? 0);
-  $("modeLabel").textContent = state.snapshot.multiSelectMode ? "ON" : "OFF";
-  $("toggleModeBtn").textContent = state.snapshot.multiSelectMode ? "Disable Multi-Select" : "Enable Multi-Select";
+  $("modeLabel").textContent = state.snapshot.multiSelectMode ? "开启" : "关闭";
+  $("toggleModeBtn").textContent = state.snapshot.multiSelectMode ? "关闭多选" : "开启多选";
+  $("deleteAllRisk").textContent = state.snapshot.deleteAllUnlocked ? "高风险：删除前仍需确认" : "高风险：首次使用需启用";
+  $("incognitoToggle").checked = Boolean(state.snapshot.incognitoModeEnabled);
+  $("incognitoInterval").value = String(state.snapshot.incognitoIntervalMinutes || 10);
+  $("incognitoStatus").textContent = formatIncognitoStatus();
 
   const disabled = !state.contentReady || state.snapshot.isDeleting;
   for (const button of document.querySelectorAll(".btn")) {
     button.disabled = disabled;
   }
+  $("deleteSelectedBtn").disabled = disabled || (state.snapshot.selectedCount || 0) === 0;
+  $("incognitoToggle").disabled = disabled;
+  $("incognitoInterval").disabled = disabled;
+}
+
+function formatIncognitoStatus() {
+  if (!state.snapshot.incognitoModeEnabled) {
+    return "未开启";
+  }
+  const nextRunAt = Number(state.snapshot.incognitoNextRunAt || 0);
+  if (!nextRunAt) {
+    return `每 ${state.snapshot.incognitoIntervalMinutes || 10} 分钟清理`;
+  }
+  const remainingMinutes = Math.max(1, Math.ceil((nextRunAt - Date.now()) / 60000));
+  return `约 ${remainingMinutes} 分钟后清理`;
 }
 
 async function refreshState() {
@@ -52,10 +75,10 @@ async function refreshState() {
       applyState(response.state);
       setMessage("");
     } else {
-      setMessage(response?.error || "Cannot read state.", true);
+      setMessage(response?.error || "无法读取状态。", true);
     }
   } catch (error) {
-    setMessage(error.message || "Content script is unavailable.", true);
+    setMessage(error.message || "页面脚本不可用。", true);
     state.contentReady = false;
     applyState({});
   }
@@ -97,14 +120,14 @@ function bindActions() {
   });
 
   $("deleteSelectedBtn").addEventListener("click", async () => {
-    setMessage("Deleting selected sessions...");
+    setMessage("正在删除已选对话...");
     try {
       const response = await sendToContent("DTK_DELETE_SELECTED");
       if (!response?.ok) {
-        setMessage(response?.error || "Delete selected failed.", true);
+        setMessage(response?.error || "删除已选失败。", true);
       } else {
         const result = response.result || {};
-        setMessage(`Done: ${result.done ?? 0}, failed: ${result.failed ?? 0}`);
+        setMessage(formatDeleteResult(result));
         applyState(response.state);
       }
     } catch (error) {
@@ -113,20 +136,65 @@ function bindActions() {
   });
 
   $("deleteAllBtn").addEventListener("click", async () => {
-    setMessage("Deleting all sessions...");
+    setMessage("正在处理全部删除...");
     try {
       const response = await sendToContent("DTK_DELETE_ALL");
       if (!response?.ok) {
-        setMessage(response?.error || "Delete all failed.", true);
+        setMessage(response?.error || "全部删除失败。", true);
       } else {
         const result = response.result || {};
-        setMessage(`Done: ${result.done ?? 0}, failed: ${result.failed ?? 0}`);
+        if (result.reason === "delete_all_locked") {
+          setMessage("已取消启用全部删除。");
+        } else {
+          setMessage(formatDeleteResult(result));
+        }
         applyState(response.state);
       }
     } catch (error) {
       setMessage(error.message, true);
     }
   });
+
+  $("incognitoToggle").addEventListener("change", async () => {
+    try {
+      const response = await sendToContent("DTK_SET_INCOGNITO_MODE", { enabled: $("incognitoToggle").checked });
+      if (response?.ok) {
+        applyState(response.state);
+        if (response.result?.reason === "cancelled") {
+          setMessage("已取消开启无痕模式。");
+        } else {
+          setMessage(response.state?.incognitoModeEnabled ? "已开启无痕模式。" : "已关闭无痕模式。");
+        }
+      }
+    } catch (error) {
+      $("incognitoToggle").checked = Boolean(state.snapshot.incognitoModeEnabled);
+      setMessage(error.message, true);
+    }
+  });
+
+  $("incognitoInterval").addEventListener("change", async () => {
+    try {
+      const minutes = Number($("incognitoInterval").value);
+      const response = await sendToContent("DTK_SET_INCOGNITO_INTERVAL", { minutes });
+      if (response?.ok) {
+        applyState(response.state);
+        setMessage(`无痕模式间隔已设为 ${response.result?.intervalMinutes ?? state.snapshot.incognitoIntervalMinutes} 分钟。`);
+      }
+    } catch (error) {
+      $("incognitoInterval").value = String(state.snapshot.incognitoIntervalMinutes || 10);
+      setMessage(error.message, true);
+    }
+  });
+}
+
+function formatDeleteResult(result) {
+  if (!result || result.reason === "cancelled") {
+    return "已取消删除。";
+  }
+  if (result.reason === "delete_all_locked") {
+    return "已取消启用全部删除。";
+  }
+  return `完成：${result.done ?? 0}，失败：${result.failed ?? 0}`;
 }
 
 async function bootstrap() {
@@ -135,7 +203,7 @@ async function bootstrap() {
 
   const tab = await getActiveTab();
   if (!tab?.id) {
-    setMessage("No active tab.", true);
+    setMessage("没有可用的当前标签页。", true);
     return;
   }
   state.tabId = tab.id;
@@ -144,11 +212,11 @@ async function bootstrap() {
     const ping = await sendToContent("DTK_PING");
     state.contentReady = Boolean(ping?.ok);
     if (!state.contentReady) {
-      setMessage("Open a Doubao page first.", true);
+      setMessage("请先打开豆包页面。", true);
     }
   } catch (_error) {
     state.contentReady = false;
-    setMessage("Open a Doubao page first.", true);
+    setMessage("请先打开豆包页面。", true);
   }
 
   applyState({});

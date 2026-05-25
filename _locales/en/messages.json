@@ -1,8 +1,8 @@
 {
   "extensionName": {
-    "message": "Doubao Toolkit"
+    "message": "豆包工具箱"
   },
   "extensionDescription": {
-    "message": "Enhance Doubao web chat management with multi-select and bulk-delete flows."
+    "message": "为豆包网页对话管理增加多选与批量删除能力。"
   }
 }

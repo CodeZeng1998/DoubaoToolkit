@@ -54,6 +54,24 @@
             state: sessionManager.getState()
           };
         };
+      case "DTK_SET_INCOGNITO_MODE":
+        return async (payload) => {
+          const result = await sessionManager.setIncognitoMode(Boolean(payload?.enabled));
+          return {
+            ok: true,
+            result,
+            state: sessionManager.getState()
+          };
+        };
+      case "DTK_SET_INCOGNITO_INTERVAL":
+        return async (payload) => {
+          const result = sessionManager.setIncognitoInterval(payload?.minutes);
+          return {
+            ok: true,
+            result,
+            state: sessionManager.getState()
+          };
+        };
       default:
         return null;
     }
@@ -62,7 +80,7 @@
   function bindMessageHandlers() {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (!message || typeof message !== "object") {
-        sendResponse({ ok: false, error: "Invalid message." });
+        sendResponse({ ok: false, error: "无效消息。" });
         return false;
       }
       if (message.type === "DTK_PING") {
@@ -72,7 +90,7 @@
 
       const handler = commandMap(message.type);
       if (!handler) {
-        sendResponse({ ok: false, error: `Unknown command: ${message.type}` });
+        sendResponse({ ok: false, error: `未知命令：${message.type}` });
         return false;
       }
 
@@ -80,7 +98,7 @@
         .then((data) => sendResponse(data))
         .catch((error) => {
           logger.error("Message command failed:", message.type, error);
-          sendResponse({ ok: false, error: error?.message ?? "Unknown error." });
+          sendResponse({ ok: false, error: error?.message ?? "未知错误。" });
         });
       return true;
     });

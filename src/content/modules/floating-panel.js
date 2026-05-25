@@ -19,6 +19,9 @@
       this.clearBtn = null;
       this.deleteSelectedBtn = null;
       this.deleteAllBtn = null;
+      this.incognitoToggle = null;
+      this.incognitoIntervalInput = null;
+      this.incognitoStatusNode = null;
       this.totalNode = null;
       this.selectedNode = null;
       this.statusNode = null;
@@ -41,7 +44,7 @@
       root.className = "dtk-floating-root";
       root.innerHTML = `
         <button type="button" class="dtk-floating-toggle" aria-label="豆包工具箱">
-          <span class="dtk-floating-dot">D</span>
+          <span class="dtk-floating-dot">工具</span>
           <span class="dtk-floating-count">0</span>
         </button>
         <section class="dtk-floating-panel">
@@ -54,11 +57,35 @@
             <span>已选：<b class="dtk-metric-selected">0</b></span>
           </div>
           <div class="dtk-floating-actions">
-            <button type="button" data-action="toggle-mode" class="dtk-mini-btn dtk-mini-btn-primary">开启多选</button>
-            <button type="button" data-action="select-all" class="dtk-mini-btn dtk-mini-btn-ghost">全选</button>
-            <button type="button" data-action="clear" class="dtk-mini-btn dtk-mini-btn-ghost">清空选择</button>
-            <button type="button" data-action="delete-selected" class="dtk-mini-btn dtk-mini-btn-danger">删除已选</button>
-            <button type="button" data-action="delete-all" class="dtk-mini-btn dtk-mini-btn-danger-outline">全部删除</button>
+            <div class="dtk-action-group">
+              <div class="dtk-action-group-title">选择</div>
+              <div class="dtk-action-grid">
+                <button type="button" data-action="toggle-mode" class="dtk-mini-btn dtk-mini-btn-primary">开启多选</button>
+                <button type="button" data-action="select-all" class="dtk-mini-btn dtk-mini-btn-ghost">全选</button>
+                <button type="button" data-action="clear" class="dtk-mini-btn dtk-mini-btn-ghost">清空选择</button>
+              </div>
+            </div>
+            <div class="dtk-action-group">
+              <div class="dtk-action-group-title">删除</div>
+              <div class="dtk-action-grid">
+                <button type="button" data-action="delete-selected" class="dtk-mini-btn dtk-mini-btn-danger">删除已选</button>
+                <button type="button" data-action="delete-all" class="dtk-mini-btn dtk-mini-btn-danger-high">全部删除</button>
+              </div>
+              <span class="dtk-delete-all-risk">高风险：首次使用需启用</span>
+            </div>
+            <div class="dtk-action-group">
+              <div class="dtk-action-group-title">无痕模式</div>
+              <label class="dtk-toggle-row">
+                <input type="checkbox" data-action="incognito-toggle" />
+                <span>自动定时清理</span>
+              </label>
+              <label class="dtk-interval-row">
+                <span>间隔</span>
+                <input type="number" data-action="incognito-interval" min="1" max="1440" step="1" />
+                <span>分钟</span>
+              </label>
+              <span class="dtk-incognito-status">无痕模式未开启</span>
+            </div>
           </div>
         </section>
       `;
@@ -72,9 +99,13 @@
       this.clearBtn = root.querySelector("[data-action='clear']");
       this.deleteSelectedBtn = root.querySelector("[data-action='delete-selected']");
       this.deleteAllBtn = root.querySelector("[data-action='delete-all']");
+      this.incognitoToggle = root.querySelector("[data-action='incognito-toggle']");
+      this.incognitoIntervalInput = root.querySelector("[data-action='incognito-interval']");
+      this.incognitoStatusNode = root.querySelector(".dtk-incognito-status");
       this.totalNode = root.querySelector(".dtk-metric-total");
       this.selectedNode = root.querySelector(".dtk-metric-selected");
       this.statusNode = root.querySelector(".dtk-floating-status");
+      this.updatePanelPlacement();
     }
 
     getDefaultPosition() {
@@ -123,7 +154,28 @@
       this.root.style.top = `${clamped.y}px`;
       this.root.style.right = "auto";
       this.root.style.bottom = "auto";
+      this.updatePanelPlacement();
       return clamped;
+    }
+
+    updatePanelPlacement() {
+      if (!this.root || !this.toggleBtn || !this.panel) {
+        return;
+      }
+      const margin = 12;
+      const gap = 10;
+      const toggleRect = this.toggleBtn.getBoundingClientRect();
+      const panelWidth = Math.min(280, Math.max(220, window.innerWidth - margin * 2));
+      const panelHeight = Math.min(this.panel.scrollHeight || 260, Math.max(220, window.innerHeight - margin * 2));
+      const shouldOpenLeft = toggleRect.left + panelWidth > window.innerWidth - margin;
+      const shouldOpenUp =
+        toggleRect.bottom + gap + panelHeight > window.innerHeight - margin &&
+        toggleRect.top - gap - panelHeight >= margin;
+
+      this.root.classList.toggle("align-right", shouldOpenLeft);
+      this.root.classList.toggle("align-left", !shouldOpenLeft);
+      this.root.classList.toggle("open-up", shouldOpenUp);
+      this.root.classList.toggle("open-down", !shouldOpenUp);
     }
 
     applySavedPosition() {
@@ -187,6 +239,7 @@
         const moved = this.endDrag();
         if (!moved && this.dragState === null) {
           this.panelOpen = !this.panelOpen;
+          this.updatePanelPlacement();
           this.root.classList.toggle("open", this.panelOpen);
         }
       });
@@ -195,6 +248,7 @@
         const rect = this.root.getBoundingClientRect();
         const applied = this.applyPosition(rect.left, rect.top);
         this.savePosition(applied);
+        this.updatePanelPlacement();
       });
     }
 
@@ -222,6 +276,17 @@
         await sessionManager.deleteSessions("all");
       });
 
+      this.incognitoToggle.addEventListener("change", async () => {
+        const result = await sessionManager.setIncognitoMode(this.incognitoToggle.checked);
+        if (!result?.ok) {
+          this.incognitoToggle.checked = sessionManager.getState().incognitoModeEnabled;
+        }
+      });
+
+      this.incognitoIntervalInput.addEventListener("change", () => {
+        sessionManager.setIncognitoInterval(this.incognitoIntervalInput.value);
+      });
+
       window.addEventListener("dtk:state-changed", (event) => {
         this.update(event.detail);
       });
@@ -247,10 +312,48 @@
       this.modeBtn.textContent = state.multiSelectMode ? "关闭多选" : "开启多选";
       this.statusNode.textContent = state.isDeleting ? "删除中..." : "就绪";
 
+      this.root.classList.toggle("selecting", Boolean(state.multiSelectMode) && !state.isDeleting);
+      this.root.classList.toggle("deleting", Boolean(state.isDeleting));
+      if (state.isDeleting) {
+        this.root.querySelector(".dtk-floating-dot").textContent = "删";
+        this.countNode.textContent = "";
+      } else if (state.multiSelectMode) {
+        this.root.querySelector(".dtk-floating-dot").textContent = "选";
+        this.countNode.textContent = String(state.selectedCount || 0);
+      } else {
+        this.root.querySelector(".dtk-floating-dot").textContent = "工具";
+        this.countNode.textContent = "";
+      }
+
+      const riskNode = this.panel.querySelector(".dtk-delete-all-risk");
+      if (riskNode) {
+        riskNode.textContent = state.deleteAllUnlocked ? "高风险：删除前仍需确认" : "高风险：首次使用需启用";
+      }
+
+      this.incognitoToggle.checked = Boolean(state.incognitoModeEnabled);
+      this.incognitoIntervalInput.value = String(state.incognitoIntervalMinutes || 10);
+      this.incognitoStatusNode.textContent = this.formatIncognitoStatus(state);
+
       const disabled = Boolean(state.isDeleting);
       for (const button of this.panel.querySelectorAll("button")) {
         button.disabled = disabled;
       }
+      this.deleteSelectedBtn.disabled = disabled || (state.selectedCount || 0) === 0;
+      this.incognitoToggle.disabled = disabled;
+      this.incognitoIntervalInput.disabled = disabled;
+      this.updatePanelPlacement();
+    }
+
+    formatIncognitoStatus(state) {
+      if (!state.incognitoModeEnabled) {
+        return "无痕模式未开启";
+      }
+      const nextRunAt = Number(state.incognitoNextRunAt || 0);
+      if (!nextRunAt) {
+        return `已开启，每 ${state.incognitoIntervalMinutes || 10} 分钟清理`;
+      }
+      const remainingMinutes = Math.max(1, Math.ceil((nextRunAt - Date.now()) / 60000));
+      return `已开启，约 ${remainingMinutes} 分钟后清理`;
     }
   }
 
