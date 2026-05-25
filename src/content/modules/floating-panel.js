@@ -42,6 +42,7 @@
       this.dragState = null;
       this.resizeState = null;
       this.lastState = null;
+      this.hoverCloseTimer = null;
     }
 
     init() {
@@ -318,6 +319,27 @@
       return !this.isDrawerMode() && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     }
 
+    clearHoverCloseTimer() {
+      if (!this.hoverCloseTimer) {
+        return;
+      }
+      window.clearTimeout(this.hoverCloseTimer);
+      this.hoverCloseTimer = null;
+    }
+
+    scheduleHoverClose() {
+      this.clearHoverCloseTimer();
+      if (!this.canHoverOpen() || this.dragState || this.resizeState) {
+        return;
+      }
+      this.hoverCloseTimer = window.setTimeout(() => {
+        this.hoverCloseTimer = null;
+        if (this.panelOpen && !this.dragState && !this.resizeState) {
+          this.setPanelOpen(false);
+        }
+      }, 220);
+    }
+
     setPanelOpen(open, options = {}) {
       this.panelOpen = Boolean(open);
       this.updatePanelPlacement();
@@ -407,6 +429,8 @@
     }
 
     bind() {
+      this.root.addEventListener("pointerenter", () => this.clearHoverCloseTimer());
+      this.root.addEventListener("pointerleave", () => this.scheduleHoverClose());
       this.toggleBtn.addEventListener("pointerenter", () => {
         if (!this.panelOpen && !this.dragState && this.canHoverOpen()) {
           this.setPanelOpen(true, { focus: false });
