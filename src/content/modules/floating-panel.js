@@ -31,6 +31,8 @@
       this.incognitoToggle = null;
       this.incognitoIntervalInput = null;
       this.incognitoStatusNode = null;
+      this.incognitoCountdownNode = null;
+      this.incognitoCountdownTimer = null;
       this.totalNode = null;
       this.selectedNode = null;
       this.deletableNode = null;
@@ -111,6 +113,7 @@
               <label class="dtk-toggle-row">
                 <input type="checkbox" data-action="incognito-toggle" aria-label="自动定时清理" />
                 <span>自动定时清理</span>
+                <span class="dtk-incognito-countdown" hidden></span>
               </label>
               <label class="dtk-interval-row">
                 <span>间隔</span>
@@ -153,6 +156,7 @@
       this.incognitoToggle = root.querySelector("[data-action='incognito-toggle']");
       this.incognitoIntervalInput = root.querySelector("[data-action='incognito-interval']");
       this.incognitoStatusNode = root.querySelector(".dtk-incognito-status");
+      this.incognitoCountdownNode = root.querySelector(".dtk-incognito-countdown");
       this.totalNode = root.querySelector(".dtk-metric-total");
       this.selectedNode = root.querySelector(".dtk-metric-selected");
       this.deletableNode = root.querySelector(".dtk-metric-deletable");
@@ -628,6 +632,7 @@
       this.incognitoToggle.checked = Boolean(state.incognitoModeEnabled);
       this.incognitoIntervalInput.value = String(state.incognitoIntervalMinutes || 10);
       this.incognitoStatusNode.textContent = this.formatIncognitoStatus(state);
+      this.syncCountdownTimer(state);
 
       const disabled = Boolean(state.isDeleting);
       for (const button of this.panel.querySelectorAll("button")) {
@@ -651,8 +656,64 @@
       if (!nextRunAt) {
         return `已开启，每 ${state.incognitoIntervalMinutes || 10} 分钟清理`;
       }
-      const remainingMinutes = Math.max(1, Math.ceil((nextRunAt - Date.now()) / 60000));
+      const remainingMs = nextRunAt - Date.now();
+      if (remainingMs <= 60000) {
+        return "已开启，即将清理";
+      }
+      const remainingMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
       return `已开启，约 ${remainingMinutes} 分钟后清理`;
+    }
+
+    syncCountdownTimer(state) {
+      if (!state.incognitoModeEnabled || !state.incognitoNextRunAt) {
+        this.stopCountdownTimer();
+        return;
+      }
+      this.lastIncognitoNextRunAt = Number(state.incognitoNextRunAt);
+      if (this.incognitoCountdownTimer) {
+        clearInterval(this.incognitoCountdownTimer);
+      }
+      this.incognitoCountdownTimer = setInterval(() => this.updateCountdown(), 1000);
+      this.updateCountdown();
+    }
+
+    stopCountdownTimer() {
+      if (this.incognitoCountdownTimer) {
+        clearInterval(this.incognitoCountdownTimer);
+        this.incognitoCountdownTimer = null;
+      }
+      this.lastIncognitoNextRunAt = 0;
+      if (this.incognitoCountdownNode) {
+        this.incognitoCountdownNode.hidden = true;
+        this.incognitoCountdownNode.textContent = "";
+        this.incognitoCountdownNode.classList.remove("dtk-countdown-urgent");
+      }
+    }
+
+    updateCountdown() {
+      const el = this.incognitoCountdownNode;
+      if (!el) return;
+      const nextRunAt = this.lastIncognitoNextRunAt || 0;
+      if (!nextRunAt) {
+        el.hidden = true;
+        el.textContent = "";
+        el.classList.remove("dtk-countdown-urgent");
+        return;
+      }
+      const remainingSeconds = Math.max(0, Math.ceil((nextRunAt - Date.now()) / 1000));
+      if (remainingSeconds <= 60 && remainingSeconds > 0) {
+        el.hidden = false;
+        el.textContent = `${remainingSeconds}s`;
+        el.classList.toggle("dtk-countdown-urgent", remainingSeconds <= 10);
+      } else if (remainingSeconds <= 0) {
+        el.hidden = false;
+        el.textContent = "0s";
+        el.classList.add("dtk-countdown-urgent");
+      } else {
+        el.hidden = true;
+        el.textContent = "";
+        el.classList.remove("dtk-countdown-urgent");
+      }
     }
   }
 

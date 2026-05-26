@@ -704,7 +704,12 @@
         this.syncBackgroundIncognitoAlarm();
         return;
       }
-      this.incognitoNextRunAt = Number(this.settings.incognitoNextRunAt || this.incognitoNextRunAt || 0) || Date.now() + this.incognitoIntervalMinutes * 60 * 1000;
+      const stored = Number(this.settings.incognitoNextRunAt || this.incognitoNextRunAt || 0);
+      if (stored > Date.now()) {
+        this.incognitoNextRunAt = stored;
+      } else {
+        this.incognitoNextRunAt = Date.now() + this.incognitoIntervalMinutes * 60 * 1000;
+      }
       this.emitState();
       this.syncBackgroundIncognitoAlarm();
     }

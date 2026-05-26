@@ -152,6 +152,37 @@ body {
   margin: 0;
 }
 
+.countdown {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
+  color: #fff;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+  animation: p-countdown-breathe 1.2s ease-in-out infinite;
+}
+
+.countdown.countdown-urgent {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 2px 12px rgba(220, 38, 38, 0.45);
+  animation: p-countdown-shake 0.4s ease-in-out infinite;
+}
+
+@keyframes p-countdown-breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.94); opacity: 0.75; }
+}
+
+@keyframes p-countdown-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1px); }
+  75% { transform: translateX(1px); }
+}
+
 .interval-row input {
   width: 76px;
   border: 1px solid var(--p-border);

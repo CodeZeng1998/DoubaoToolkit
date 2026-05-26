@@ -1,6 +1,7 @@
 const state = {
   tabId: null,
   contentReady: false,
+  countdownTimer: null,
   snapshot: {
     totalSessions: 0,
     selectedCount: 0,
@@ -67,6 +68,12 @@ function applyState(snapshot) {
   $("incognitoInterval").value = String(state.snapshot.incognitoIntervalMinutes || 10);
   $("incognitoStatus").textContent = formatIncognitoStatus();
 
+  if (state.snapshot.incognitoModeEnabled && state.snapshot.incognitoNextRunAt) {
+    startCountdownTimer();
+  } else {
+    stopCountdownTimer();
+  }
+
   const disabled = !state.contentReady || state.snapshot.isDeleting;
   for (const button of document.querySelectorAll(".btn")) {
     button.disabled = disabled;
@@ -88,6 +95,56 @@ function formatIncognitoStatus() {
   }
   const remainingMinutes = Math.max(1, Math.ceil((nextRunAt - Date.now()) / 60000));
   return `约 ${remainingMinutes} 分钟后清理`;
+}
+
+function startCountdownTimer() {
+  stopCountdownTimer();
+  state.countdownTimer = setInterval(updateCountdown, 1000);
+  updateCountdown();
+}
+
+function stopCountdownTimer() {
+  if (state.countdownTimer) {
+    clearInterval(state.countdownTimer);
+    state.countdownTimer = null;
+  }
+  const el = $("incognitoCountdown");
+  el.hidden = true;
+  el.textContent = "";
+  el.classList.remove("countdown-urgent");
+}
+
+function updateCountdown() {
+  const el = $("incognitoCountdown");
+  if (!state.snapshot.incognitoModeEnabled) {
+    el.hidden = true;
+    el.textContent = "";
+    el.classList.remove("countdown-urgent");
+    stopCountdownTimer();
+    return;
+  }
+  const nextRunAt = Number(state.snapshot.incognitoNextRunAt || 0);
+  if (!nextRunAt) {
+    el.hidden = true;
+    el.textContent = "";
+    el.classList.remove("countdown-urgent");
+    return;
+  }
+  const remainingSeconds = Math.max(0, Math.ceil((nextRunAt - Date.now()) / 1000));
+  if (remainingSeconds <= 60 && remainingSeconds > 0) {
+    el.hidden = false;
+    el.textContent = `${remainingSeconds}s`;
+    el.classList.toggle("countdown-urgent", remainingSeconds <= 10);
+  } else if (remainingSeconds <= 0) {
+    el.hidden = false;
+    el.textContent = "0s";
+    el.classList.add("countdown-urgent");
+    setTimeout(() => refreshState(), 2000);
+  } else {
+    el.hidden = true;
+    el.textContent = "";
+    el.classList.remove("countdown-urgent");
+  }
 }
 
 async function refreshState() {
