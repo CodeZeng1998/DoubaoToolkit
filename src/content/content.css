@@ -1,32 +1,32 @@
 :root {
   --dtk-bg: #ffffff;
   --dtk-bg-rgb: 255, 255, 255;
-  --dtk-bg-soft: #f5f7fb;
-  --dtk-text: #1d2330;
-  --dtk-text-muted: #6a7386;
-  --dtk-border: #d9deea;
-  --dtk-primary: #1f6fff;
-  --dtk-danger: #e04949;
-  --dtk-success: #24a66a;
-  --dtk-warning: #ff9f1a;
-  --dtk-shadow: 0 8px 24px rgba(15, 25, 40, 0.15);
+  --dtk-bg-soft: #f0f0f7;
+  --dtk-text: #1c1c2e;
+  --dtk-text-muted: #6b6b8a;
+  --dtk-border: #e2e2f0;
+  --dtk-primary: #6366f1;
+  --dtk-danger: #e04e6e;
+  --dtk-success: #10b981;
+  --dtk-warning: #f59e0b;
+  --dtk-shadow: 0 8px 28px rgba(99, 102, 241, 0.12);
   --dtk-panel-opacity: 0.96;
   --dtk-panel-opacity-percent: 96%;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --dtk-bg: #171a22;
-    --dtk-bg-rgb: 23, 26, 34;
-    --dtk-bg-soft: #202633;
-    --dtk-text: #f2f5ff;
-    --dtk-text-muted: #aeb7c8;
-    --dtk-border: #34405a;
-    --dtk-primary: #5b93ff;
-    --dtk-danger: #ff6767;
-    --dtk-success: #46c890;
-    --dtk-warning: #ffb84b;
-    --dtk-shadow: 0 10px 26px rgba(0, 0, 0, 0.38);
+    --dtk-bg: #12121e;
+    --dtk-bg-rgb: 18, 18, 30;
+    --dtk-bg-soft: #1c1c2e;
+    --dtk-text: #ededfa;
+    --dtk-text-muted: #9898b8;
+    --dtk-border: #2e2e48;
+    --dtk-primary: #818cf8;
+    --dtk-danger: #f87171;
+    --dtk-success: #4ade80;
+    --dtk-warning: #fbbf24;
+    --dtk-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
   }
 }
 
@@ -445,7 +445,7 @@
 .dtk-progress-bar-fill {
   width: 0;
   height: 100%;
-  background: linear-gradient(90deg, var(--dtk-primary), #4ca5ff);
+  background: linear-gradient(90deg, var(--dtk-primary), color-mix(in srgb, var(--dtk-primary) 70%, #a855f7));
   transition: width 0.2s ease;
 }
 
@@ -548,7 +548,7 @@
   right: 16px;
   bottom: 88px;
   z-index: 999999;
-  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "SF Pro Text", "PingFang SC", "HarmonyOS Sans SC", system-ui, sans-serif;
   user-select: none;
 }
 
@@ -561,7 +561,7 @@
   height: 52px;
   border-radius: 999px;
   border: 1px solid var(--dtk-border);
-  background: linear-gradient(135deg, var(--dtk-primary), #4ca5ff);
+  background: linear-gradient(135deg, var(--dtk-primary), color-mix(in srgb, var(--dtk-primary) 75%, #a855f7));
   color: #fff;
   box-shadow: var(--dtk-shadow);
   cursor: pointer;
@@ -569,6 +569,12 @@
   place-items: center;
   position: relative;
   touch-action: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dtk-floating-toggle:hover {
+  transform: scale(1.06);
+  box-shadow: 0 10px 32px color-mix(in srgb, var(--dtk-primary) 30%, transparent);
 }
 
 .dtk-floating-root.deleting .dtk-floating-toggle::after {
