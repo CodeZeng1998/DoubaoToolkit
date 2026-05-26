@@ -121,6 +121,7 @@
 
   function findAnchorByConversationId(conversationId) {
     const selectors = [
+      `a#conversation_${conversationId}`,
       `a[href$='/chat/${conversationId}']`,
       `a[href*='/chat/${conversationId}?']`,
       `a[href*='/chat/${conversationId}/']`,

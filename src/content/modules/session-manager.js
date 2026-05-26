@@ -435,19 +435,23 @@
 
     getSelectionAnchorElement(session) {
       const item = session?.element;
-      const anchor = session?.anchor;
-      if (anchor instanceof HTMLElement && document.body.contains(anchor) && domUtils.isVisible(anchor)) {
-        return anchor;
+      const conversationId = String(session?.conversationId || "").trim();
+      const exactAnchor = conversationId ? document.getElementById(`conversation_${conversationId}`) : null;
+      if (exactAnchor instanceof HTMLElement && exactAnchor.matches("a[href*='/chat/']") && domUtils.isVisible(exactAnchor)) {
+        return exactAnchor;
       }
       if (item instanceof HTMLElement) {
-        const conversationId = String(session?.conversationId || "").trim();
         const selector = conversationId
-          ? `a[href*="/chat/${conversationId}"],a[href*="/chat/${conversationId}?"]`
+          ? `a#conversation_${conversationId},a[href="/chat/${conversationId}"],a[href^="/chat/${conversationId}?"]`
           : "a[href*='/chat/']";
         const innerAnchor = item.querySelector(selector);
         if (innerAnchor instanceof HTMLElement && domUtils.isVisible(innerAnchor)) {
           return innerAnchor;
         }
+      }
+      const anchor = session?.anchor;
+      if (anchor instanceof HTMLElement && document.body.contains(anchor) && domUtils.isVisible(anchor)) {
+        return anchor;
       }
       return item;
     }
@@ -462,6 +466,9 @@
       if (anchorRect.width <= 0 || anchorRect.height <= 0) {
         return null;
       }
+      if (anchor.id === `conversation_${session?.conversationId || ""}`) {
+        return anchorRect;
+      }
       const itemRect = item instanceof HTMLElement ? item.getBoundingClientRect() : anchorRect;
       const useAnchorRect =
         itemRect.height <= 0 ||
@@ -470,8 +477,10 @@
       if (!useAnchorRect) {
         return itemRect;
       }
+      // 使用 anchor 的位置，但确保 left 值合理（不使用 Math.min 避免选择异常小的值）
+      const finalLeft = Number.isFinite(itemRect.left) && itemRect.left >= 0 ? Math.min(itemRect.left, anchorRect.left) : anchorRect.left;
       return {
-        left: Math.min(itemRect.left || anchorRect.left, anchorRect.left),
+        left: finalLeft,
         right: Math.max(itemRect.right || anchorRect.right, anchorRect.right),
         top: anchorRect.top,
         bottom: anchorRect.bottom,
@@ -517,13 +526,36 @@
           checkbox.hidden = true;
           return;
         }
-        const visible = rect.bottom >= 0 && rect.top <= (window.innerHeight || 800) && rect.width > 0 && rect.height > 0;
-        checkbox.hidden = !visible;
-        if (!visible) {
+
+        // 检查 rect 的基本有效性
+        if (!Number.isFinite(rect.left) || !Number.isFinite(rect.top) || !Number.isFinite(rect.width) || !Number.isFinite(rect.height)) {
+          checkbox.hidden = true;
           return;
         }
-        checkbox.style.left = `${Math.max(8, rect.left + 8)}px`;
-        checkbox.style.top = `${Math.max(8, rect.top + rect.height / 2)}px`;
+
+        const viewportHeight = window.innerHeight || 800;
+        const viewportWidth = window.innerWidth || 1920;
+
+        // 检查元素是否在视口内
+        const visible = rect.bottom >= 0 && rect.top <= viewportHeight && rect.width > 0 && rect.height > 0;
+        if (!visible) {
+          checkbox.hidden = true;
+          return;
+        }
+
+        // 计算勾选框位置
+        const checkboxLeft = rect.left + 8;
+        const checkboxTop = rect.top + rect.height / 2;
+
+        // 确保勾选框位置在合理范围内（至少在视口左侧边界内，且不会超出右侧太多）
+        if (checkboxLeft < -10 || checkboxTop < -10 || checkboxLeft > viewportWidth + 10 || checkboxTop > viewportHeight + 10) {
+          checkbox.hidden = true;
+          return;
+        }
+
+        checkbox.hidden = false;
+        checkbox.style.left = `${checkboxLeft}px`;
+        checkbox.style.top = `${checkboxTop}px`;
         checkbox.setAttribute("aria-checked", String(this.selectedIds.has(session.id)));
     }
 
