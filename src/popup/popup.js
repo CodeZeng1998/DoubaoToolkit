@@ -9,8 +9,19 @@ const state = {
     deleteAllUnlocked: false,
     incognitoModeEnabled: false,
     incognitoIntervalMinutes: 10,
-    incognitoNextRunAt: null
-  }
+    incognitoNextRunAt: null,
+    hasFailedRetryTargets: false,
+    deleteStats: {
+      loading: true,
+      total: 0,
+      selected: 0,
+      deletable: 0,
+      selectedDeletable: 0,
+      missingConversationId: 0,
+      missingElement: 0
+    }
+  },
+  latestTask: null
 };
 
 const $ = (id) => document.getElementById(id);
@@ -38,10 +49,19 @@ function applyState(snapshot) {
     ...state.snapshot,
     ...snapshot
   };
+  const stats = state.snapshot.deleteStats || {};
   $("totalSessions").textContent = String(state.snapshot.totalSessions ?? 0);
   $("selectedSessions").textContent = String(state.snapshot.selectedCount ?? 0);
+  $("deletableSessions").textContent = String(stats.deletable ?? state.snapshot.totalSessions ?? 0);
+  $("selectedDeletableSessions").textContent = String(stats.selectedDeletable ?? state.snapshot.selectedCount ?? 0);
+  $("missingIdSessions").textContent = String(stats.missingConversationId ?? 0);
+  $("missingElementSessions").textContent = String(stats.missingElement ?? 0);
   $("modeLabel").textContent = state.snapshot.multiSelectMode ? "开启" : "关闭";
   $("toggleModeBtn").textContent = state.snapshot.multiSelectMode ? "关闭多选" : "开启多选";
+  const allSelected =
+    (state.snapshot.totalSessions || 0) > 0 && (state.snapshot.selectedCount || 0) >= (state.snapshot.totalSessions || 0);
+  $("selectAllBtn").textContent = allSelected ? "取消全选" : "全选";
+  $("selectAllBtn").setAttribute("aria-pressed", String(allSelected));
   $("deleteAllRisk").textContent = state.snapshot.deleteAllUnlocked ? "高风险：删除前仍需确认" : "高风险：首次使用需启用";
   $("incognitoToggle").checked = Boolean(state.snapshot.incognitoModeEnabled);
   $("incognitoInterval").value = String(state.snapshot.incognitoIntervalMinutes || 10);
@@ -52,8 +72,10 @@ function applyState(snapshot) {
     button.disabled = disabled;
   }
   $("deleteSelectedBtn").disabled = disabled || (state.snapshot.selectedCount || 0) === 0;
+  $("cancelDeleteBtn").disabled = !state.contentReady || !state.snapshot.isDeleting;
   $("incognitoToggle").disabled = disabled;
   $("incognitoInterval").disabled = disabled;
+  $("retryFailedBtn").disabled = disabled || !state.snapshot.hasFailedRetryTargets;
 }
 
 function formatIncognitoStatus() {
@@ -84,6 +106,40 @@ async function refreshState() {
   }
 }
 
+async function refreshDeleteStats() {
+  try {
+    const response = await sendToContent("DTK_REFRESH_DELETE_STATS");
+    if (response?.ok) {
+      applyState(response.state);
+    }
+  } catch (error) {
+    setMessage(error.message || "无法统计对话信息。", true);
+  }
+}
+
+async function refreshHistory() {
+  try {
+    const history = await DoubaoToolkitStorage.getTaskHistory();
+    state.latestTask = history[0] || null;
+    renderLatestTask();
+  } catch (_error) {
+    state.latestTask = null;
+    renderLatestTask();
+  }
+}
+
+function renderLatestTask() {
+  const node = $("latestTask");
+  const task = state.latestTask;
+  if (!task) {
+    node.textContent = "暂无任务记录";
+    return;
+  }
+  const time = task.createdAt ? new Date(task.createdAt).toLocaleString("zh-CN", { hour12: false }) : "";
+  const source = task.source === "incognito" ? "自动清理" : task.source === "retry" ? "失败重试" : "手动删除";
+  node.textContent = `${source}：${task.summary || "任务完成"}${time ? ` · ${time}` : ""}`;
+}
+
 function bindActions() {
   $("toggleModeBtn").addEventListener("click", async () => {
     try {
@@ -99,7 +155,9 @@ function bindActions() {
 
   $("selectAllBtn").addEventListener("click", async () => {
     try {
-      const response = await sendToContent("DTK_SELECT_ALL");
+      const allSelected =
+        (state.snapshot.totalSessions || 0) > 0 && (state.snapshot.selectedCount || 0) >= (state.snapshot.totalSessions || 0);
+      const response = await sendToContent(allSelected ? "DTK_CLEAR_SELECTION" : "DTK_SELECT_ALL");
       if (response?.ok) {
         applyState(response.state);
       }
@@ -129,6 +187,7 @@ function bindActions() {
         const result = response.result || {};
         setMessage(formatDeleteResult(result));
         applyState(response.state);
+        await refreshHistory();
       }
     } catch (error) {
       setMessage(error.message, true);
@@ -149,6 +208,25 @@ function bindActions() {
           setMessage(formatDeleteResult(result));
         }
         applyState(response.state);
+        await refreshHistory();
+      }
+    } catch (error) {
+      setMessage(error.message, true);
+    }
+  });
+
+  $("cancelDeleteBtn").addEventListener("click", async () => {
+    setMessage("正在请求取消删除...");
+    try {
+      const response = await sendToContent("DTK_CANCEL_DELETE");
+      if (response?.ok && response.result?.ok) {
+        applyState(response.state);
+        setMessage("已请求取消，当前对话处理完成后停止。");
+      } else {
+        setMessage("当前没有正在执行的删除任务。");
+        if (response?.state) {
+          applyState(response.state);
+        }
       }
     } catch (error) {
       setMessage(error.message, true);
@@ -184,6 +262,26 @@ function bindActions() {
       $("incognitoInterval").value = String(state.snapshot.incognitoIntervalMinutes || 10);
       setMessage(error.message, true);
     }
+  });
+
+  $("retryFailedBtn").addEventListener("click", async () => {
+    setMessage("正在重试失败项...");
+    try {
+      const response = await sendToContent("DTK_RETRY_FAILED_DELETES");
+      if (response?.ok) {
+        applyState(response.state);
+        setMessage(formatDeleteResult(response.result));
+        await refreshHistory();
+      } else {
+        setMessage(response?.error || "重试失败项失败。", true);
+      }
+    } catch (error) {
+      setMessage(error.message, true);
+    }
+  });
+
+  $("openOptionsBtn").addEventListener("click", () => {
+    chrome.runtime.openOptionsPage();
   });
 }
 
@@ -221,8 +319,10 @@ async function bootstrap() {
 
   applyState({});
   if (state.contentReady) {
+    await refreshDeleteStats();
     await refreshState();
   }
+  await refreshHistory();
 }
 
 document.addEventListener("DOMContentLoaded", bootstrap);

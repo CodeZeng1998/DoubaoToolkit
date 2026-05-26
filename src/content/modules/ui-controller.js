@@ -45,6 +45,15 @@
             state: sessionManager.getState()
           };
         };
+      case "DTK_REFRESH_DELETE_STATS":
+        return async () => {
+          const result = sessionManager.refreshDeleteStats({ force: true });
+          return {
+            ok: true,
+            result,
+            state: sessionManager.getState()
+          };
+        };
       case "DTK_DELETE_ALL":
         return async () => {
           const result = await sessionManager.deleteSessions("all");
@@ -65,10 +74,52 @@
         };
       case "DTK_SET_INCOGNITO_INTERVAL":
         return async (payload) => {
-          const result = sessionManager.setIncognitoInterval(payload?.minutes);
+          const result = await sessionManager.setIncognitoInterval(payload?.minutes);
           return {
             ok: true,
             result,
+            state: sessionManager.getState()
+          };
+        };
+      case "DTK_RUN_INCOGNITO_CLEANUP":
+        return async () => {
+          const result = await sessionManager.runIncognitoCleanup();
+          return {
+            ok: true,
+            result,
+            state: sessionManager.getState()
+          };
+        };
+      case "DTK_RETRY_FAILED_DELETES":
+        return async () => {
+          const result = await sessionManager.retryFailedSessions();
+          return {
+            ok: true,
+            result,
+            state: sessionManager.getState()
+          };
+        };
+      case "DTK_CANCEL_DELETE":
+        return async () => {
+          const result = sessionManager.requestCancelDelete();
+          return {
+            ok: true,
+            result,
+            state: sessionManager.getState()
+          };
+        };
+      case "DTK_GET_DIAGNOSTICS":
+        return async () => ({
+          ok: true,
+          diagnostics: sessionManager.buildDiagnostics(),
+          state: sessionManager.getState()
+        });
+      case "DTK_RELOAD_SETTINGS":
+        return async () => {
+          const settings = await sessionManager.reloadSettings();
+          return {
+            ok: true,
+            settings,
             state: sessionManager.getState()
           };
         };

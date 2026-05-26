@@ -11,6 +11,7 @@
   const progress = toolkit.progress;
   const chatSelectors = toolkit.chatSelectors;
   const apiClient = toolkit.apiClient;
+  const storage = global.DoubaoToolkitStorage;
   const DELETE_ALL_UNLOCK_KEY = "dtk_delete_all_unlocked_v1";
   const INCOGNITO_ENABLED_KEY = "dtk_incognito_enabled_v1";
   const INCOGNITO_INTERVAL_KEY = "dtk_incognito_interval_minutes_v1";
@@ -46,6 +47,7 @@
       this.refreshTimer = null;
       this.selectionRenderTimer = null;
       this.selectionRenderToken = 0;
+      this.selectionOverlay = null;
       this.lastKnownUrl = location.href;
       this.deleteAllUnlocked = this.readDeleteAllUnlocked();
       this.incognitoModeEnabled = this.readBooleanSetting(INCOGNITO_ENABLED_KEY, false);
@@ -57,18 +59,109 @@
       );
       this.incognitoTimer = null;
       this.incognitoNextRunAt = null;
+      this.deleteCancelRequested = false;
+      this.deleteStats = {
+        loading: true,
+        updatedAt: 0,
+        total: 0,
+        selected: 0,
+        deletable: 0,
+        selectedDeletable: 0,
+        missingConversationId: 0,
+        missingElement: 0,
+        apiClientReady: false,
+        apiFallbackToUi: Boolean(config?.api?.fallbackToUi)
+      };
+      this.deleteStatsTimer = null;
+      this.settings = {
+        ...(storage?.DEFAULT_SETTINGS || {}),
+        autoReloadAfterDeleteAll: true,
+        apiFallbackToUi: true,
+        debugLogs: true,
+        deleteStepDelayMs: config.timing.deleteStepDelayMs,
+        maxRetryAttempts: config.retry.maxAttempts
+      };
+      this.lastFailureDetails = [];
     }
 
     init() {
+      this.loadSettings().then(() => this.syncIncognitoTimer());
       this.refreshSessions();
+      this.scheduleDeleteStatsRefresh({ force: true });
       this.startDomObserver();
       this.startSpaObserver();
-      this.syncIncognitoTimer();
       logger.info("Session manager initialized.");
     }
 
-    refreshSessions() {
-      const sessions = chatSelectors.getSessionItems();
+    async loadSettings() {
+      if (!storage?.getSettings) {
+        return;
+      }
+      try {
+        const settings = await storage.getSettings();
+        this.applySettings(settings);
+        this.emitState();
+      } catch (error) {
+        logger?.warn("Load settings failed:", error);
+      }
+    }
+
+    async saveSettings(patch) {
+      const next = {
+        ...this.settings,
+        ...(patch || {})
+      };
+      this.applySettings(next);
+      if (storage?.saveSettings) {
+        try {
+          await storage.saveSettings(next);
+        } catch (error) {
+          logger?.warn("Save settings failed:", error);
+        }
+      }
+      this.syncIncognitoTimer();
+      this.emitState();
+      return this.settings;
+    }
+
+    async reloadSettings() {
+      await this.loadSettings();
+      this.syncIncognitoTimer();
+      return this.settings;
+    }
+
+    applySettings(settings) {
+      this.settings = {
+        ...this.settings,
+        ...(settings || {})
+      };
+      config.debug = Boolean(this.settings.debugLogs);
+      config.api.fallbackToUi = Boolean(this.settings.apiFallbackToUi);
+      config.timing.deleteStepDelayMs = this.clampNumber(this.settings.deleteStepDelayMs, 80, 2000, 300);
+      config.retry.maxAttempts = this.clampNumber(this.settings.maxRetryAttempts, 1, 10, 5);
+      this.incognitoModeEnabled = Boolean(this.settings.incognitoModeEnabled);
+      this.incognitoIntervalMinutes = this.clampNumber(
+        this.settings.incognitoIntervalMinutes,
+        MIN_INCOGNITO_INTERVAL_MINUTES,
+        MAX_INCOGNITO_INTERVAL_MINUTES,
+        DEFAULT_INCOGNITO_INTERVAL_MINUTES
+      );
+      this.incognitoNextRunAt = Number(this.settings.incognitoNextRunAt || 0) || null;
+    }
+
+    clampNumber(value, min, max, fallback) {
+      const number = Math.round(Number(value));
+      if (!Number.isFinite(number)) {
+        return fallback;
+      }
+      return Math.min(Math.max(number, min), max);
+    }
+
+    refreshSessions(options = {}) {
+      if (options.force) {
+        chatSelectors.invalidateSessionCache?.();
+      }
+      const sessions = chatSelectors.getSessionItems({ force: Boolean(options.force) });
       this.sessionMap.clear();
       for (const session of sessions) {
         this.sessionMap.set(session.id, session);
@@ -84,6 +177,9 @@
         this.renderSelectionControls();
       }
       this.emitState();
+      if (!options.skipStats) {
+        this.scheduleDeleteStatsRefresh();
+      }
     }
 
     scheduleRefresh() {
@@ -91,28 +187,100 @@
         window.clearTimeout(this.refreshTimer);
       }
       this.refreshTimer = window.setTimeout(() => {
-        this.refreshSessions();
+        this.refreshSessions({ force: true });
       }, config.timing.sessionRefreshDebounceMs);
     }
 
-    schedulePageReloadAfterDeleteAll() {
+    schedulePageReloadAfterDeleteTask(options = {}) {
+      if (options.source === "incognito") {
+        return;
+      }
       window.setTimeout(() => {
         location.reload();
       }, 900);
+    }
+
+    requestCancelDelete() {
+      if (!this.isDeleting) {
+        return {
+          ok: false,
+          reason: "idle"
+        };
+      }
+      this.deleteCancelRequested = true;
+      toast.show("正在取消删除，当前对话处理完成后停止。", "warning", 2600);
+      return {
+        ok: true
+      };
+    }
+
+    shouldRefreshForMutation(mutation) {
+      const isToolkitNode = (node) => {
+        if (!(node instanceof HTMLElement)) {
+          return false;
+        }
+        return Boolean(
+          domUtils.isInToolkitUI?.(node) ||
+            node.closest?.(
+              ".dtk-floating-root,.dtk-toast-container,.dtk-toast-detail-overlay,.dtk-modal-overlay,.dtk-progress-overlay"
+            )
+        );
+      };
+
+      if (isToolkitNode(mutation.target)) {
+        return false;
+      }
+
+      if (mutation.type === "attributes") {
+        return ["href", "aria-label", "title", "data-testid", "data-conversation-id"].includes(mutation.attributeName);
+      }
+
+      const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+      return changedNodes.some((node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return Boolean(node.textContent?.trim());
+        }
+        return node instanceof HTMLElement && !isToolkitNode(node);
+      });
     }
 
     startDomObserver() {
       if (this.observer) {
         return;
       }
-      this.observer = new MutationObserver(() => {
-        this.scheduleRefresh();
+      this.observer = new MutationObserver((mutations) => {
+        if (mutations.some((mutation) => this.shouldRefreshForMutation(mutation))) {
+          this.scheduleRefresh();
+        }
       });
       this.observer.observe(document.body, {
         childList: true,
         subtree: true,
-        attributes: true
+        attributes: true,
+        attributeFilter: ["href", "aria-label", "title", "data-testid", "data-conversation-id"]
       });
+      window.addEventListener("scroll", () => {
+        if (this.multiSelectMode) {
+          this.scheduleSelectionRender();
+        }
+      }, true);
+      window.addEventListener("resize", () => {
+        if (this.multiSelectMode) {
+          this.scheduleSelectionRender();
+        }
+      });
+    }
+
+    async syncBackgroundIncognitoAlarm() {
+      try {
+        const response = await chrome.runtime?.sendMessage?.({ type: "DTK_SW_SYNC_INCOGNITO" });
+        if (response?.settings) {
+          this.applySettings(response.settings);
+          this.emitState();
+        }
+      } catch (error) {
+        logger?.debug("Sync background incognito alarm failed:", error);
+      }
     }
 
     startSpaObserver() {
@@ -145,9 +313,11 @@
       document.documentElement.classList.toggle("dtk-multi-select-enabled", this.multiSelectMode);
       if (!this.multiSelectMode) {
         this.selectedIds.clear();
+        this.clearSelectionOverlay();
       }
       this.renderSelectionControls();
       this.emitState();
+      this.scheduleDeleteStatsRefresh();
       toast.show(this.multiSelectMode ? "已开启多选。" : "已关闭多选。", "info");
     }
 
@@ -162,6 +332,7 @@
       }
       this.renderSelectionControls();
       this.emitState();
+      this.scheduleDeleteStatsRefresh();
     }
 
     selectAll() {
@@ -173,6 +344,7 @@
       }
       this.renderSelectionControls();
       this.emitState();
+      this.scheduleDeleteStatsRefresh();
       toast.show(`已选择 ${this.selectedIds.size} 个对话。`, "success");
     }
 
@@ -180,14 +352,30 @@
       this.selectedIds.clear();
       this.renderSelectionControls();
       this.emitState();
+      this.scheduleDeleteStatsRefresh();
       if (!silent) {
         toast.show("已清空选择。", "info");
       }
     }
 
+    scheduleSelectionRender() {
+      if (this.selectionRenderTimer) {
+        window.clearTimeout(this.selectionRenderTimer);
+      }
+      this.selectionRenderTimer = window.setTimeout(() => {
+        this.selectionRenderTimer = null;
+        this.renderSelectionControls();
+      }, 40);
+    }
+
     renderSelectionControls() {
       const token = ++this.selectionRenderToken;
       const sessions = Array.from(this.sessionMap.values());
+      if (!this.multiSelectMode) {
+        this.clearSelectionOverlay();
+        return;
+      }
+      const overlay = this.ensureSelectionOverlay();
       const viewportHeight = window.innerHeight || 800;
       const sortedSessions = sessions.sort((a, b) => {
         const aRect = a?.element instanceof HTMLElement ? a.element.getBoundingClientRect() : { top: 999999 };
@@ -211,7 +399,7 @@
         }
         const batch = sortedSessions.slice(startIndex, startIndex + 50);
         for (const session of batch) {
-          this.renderSelectionControl(session);
+          this.renderSelectionControl(session, overlay);
         }
         if (startIndex + batch.length < sortedSessions.length) {
           this.selectionRenderTimer = window.setTimeout(() => renderBatch(startIndex + batch.length), 16);
@@ -221,15 +409,88 @@
       renderBatch(0);
     }
 
-    renderSelectionControl(session) {
+    ensureSelectionOverlay() {
+      if (this.selectionOverlay && document.body.contains(this.selectionOverlay)) {
+        return this.selectionOverlay;
+      }
+      for (const node of document.querySelectorAll(".dtk-session-checkbox")) {
+        if (!node.closest(".dtk-selection-overlay")) {
+          node.remove();
+        }
+      }
+      const overlay = document.createElement("div");
+      overlay.className = "dtk-selection-overlay";
+      document.body.appendChild(overlay);
+      this.selectionOverlay = overlay;
+      return overlay;
+    }
+
+    clearSelectionOverlay() {
+      this.selectionOverlay?.remove();
+      this.selectionOverlay = null;
+      for (const item of this.sessionMap.values()) {
+        item?.element?.classList?.remove("dtk-session-selected", "dtk-session-selectable");
+      }
+    }
+
+    getSelectionAnchorElement(session) {
+      const item = session?.element;
+      const anchor = session?.anchor;
+      if (anchor instanceof HTMLElement && document.body.contains(anchor) && domUtils.isVisible(anchor)) {
+        return anchor;
+      }
+      if (item instanceof HTMLElement) {
+        const conversationId = String(session?.conversationId || "").trim();
+        const selector = conversationId
+          ? `a[href*="/chat/${conversationId}"],a[href*="/chat/${conversationId}?"]`
+          : "a[href*='/chat/']";
+        const innerAnchor = item.querySelector(selector);
+        if (innerAnchor instanceof HTMLElement && domUtils.isVisible(innerAnchor)) {
+          return innerAnchor;
+        }
+      }
+      return item;
+    }
+
+    getSelectionAnchorRect(session) {
+      const item = session?.element;
+      const anchor = this.getSelectionAnchorElement(session);
+      if (!(anchor instanceof HTMLElement)) {
+        return null;
+      }
+      const anchorRect = anchor.getBoundingClientRect();
+      if (anchorRect.width <= 0 || anchorRect.height <= 0) {
+        return null;
+      }
+      const itemRect = item instanceof HTMLElement ? item.getBoundingClientRect() : anchorRect;
+      const useAnchorRect =
+        itemRect.height <= 0 ||
+        itemRect.height > Math.max(140, anchorRect.height * 2.5) ||
+        Math.abs(anchorRect.top - itemRect.top) > Math.max(24, anchorRect.height);
+      if (!useAnchorRect) {
+        return itemRect;
+      }
+      return {
+        left: Math.min(itemRect.left || anchorRect.left, anchorRect.left),
+        right: Math.max(itemRect.right || anchorRect.right, anchorRect.right),
+        top: anchorRect.top,
+        bottom: anchorRect.bottom,
+        width: Math.max(itemRect.width || 0, anchorRect.width),
+        height: anchorRect.height
+      };
+    }
+
+    renderSelectionControl(session, overlay = this.ensureSelectionOverlay()) {
         const item = session.element;
         if (!(item instanceof HTMLElement)) {
           return;
         }
         item.classList.toggle("dtk-session-selected", this.selectedIds.has(session.id));
-        let checkbox = item.querySelector(".dtk-session-checkbox");
+        item.classList.toggle("dtk-session-selectable", this.multiSelectMode);
+        let checkbox = overlay.querySelector(`[data-session-id="${CSS.escape(session.id)}"]`);
 
         if (!this.multiSelectMode) {
+          item.classList.remove("dtk-session-selectable");
           if (checkbox) {
             checkbox.remove();
           }
@@ -248,8 +509,21 @@
             event.stopPropagation();
             this.toggleSessionSelection(session.id);
           });
-          item.insertBefore(checkbox, item.firstChild);
+          checkbox.dataset.sessionId = session.id;
+          overlay.appendChild(checkbox);
         }
+        const rect = this.getSelectionAnchorRect(session);
+        if (!rect) {
+          checkbox.hidden = true;
+          return;
+        }
+        const visible = rect.bottom >= 0 && rect.top <= (window.innerHeight || 800) && rect.width > 0 && rect.height > 0;
+        checkbox.hidden = !visible;
+        if (!visible) {
+          return;
+        }
+        checkbox.style.left = `${Math.max(8, rect.left + 8)}px`;
+        checkbox.style.top = `${Math.max(8, rect.top + rect.height / 2)}px`;
         checkbox.setAttribute("aria-checked", String(this.selectedIds.has(session.id)));
     }
 
@@ -356,7 +630,11 @@
 
       this.incognitoModeEnabled = nextEnabled;
       this.writeSetting(INCOGNITO_ENABLED_KEY, this.incognitoModeEnabled);
-      this.syncIncognitoTimer();
+      await this.saveSettings({
+        incognitoModeEnabled: this.incognitoModeEnabled,
+        incognitoIntervalMinutes: this.incognitoIntervalMinutes,
+        incognitoNextRunAt: this.incognitoModeEnabled ? Date.now() + this.incognitoIntervalMinutes * 60 * 1000 : null
+      });
       this.emitState();
       toast.show(this.incognitoModeEnabled ? "已开启无痕模式。" : "已关闭无痕模式。", "info", 2600);
       return {
@@ -364,14 +642,17 @@
       };
     }
 
-    setIncognitoInterval(minutes) {
+    async setIncognitoInterval(minutes) {
       const value = Math.min(
         Math.max(Math.round(Number(minutes) || DEFAULT_INCOGNITO_INTERVAL_MINUTES), MIN_INCOGNITO_INTERVAL_MINUTES),
         MAX_INCOGNITO_INTERVAL_MINUTES
       );
       this.incognitoIntervalMinutes = value;
       this.writeSetting(INCOGNITO_INTERVAL_KEY, value);
-      this.syncIncognitoTimer();
+      await this.saveSettings({
+        incognitoIntervalMinutes: value,
+        incognitoNextRunAt: this.incognitoModeEnabled ? Date.now() + value * 60 * 1000 : null
+      });
       this.emitState();
       toast.show(`无痕模式间隔已设为 ${value} 分钟。`, "info", 2400);
       return {
@@ -385,17 +666,15 @@
         window.clearTimeout(this.incognitoTimer);
         this.incognitoTimer = null;
       }
-      this.incognitoNextRunAt = null;
       if (!this.incognitoModeEnabled) {
+        this.incognitoNextRunAt = null;
         this.emitState();
+        this.syncBackgroundIncognitoAlarm();
         return;
       }
-      const delayMs = this.incognitoIntervalMinutes * 60 * 1000;
-      this.incognitoNextRunAt = Date.now() + delayMs;
-      this.incognitoTimer = window.setTimeout(() => {
-        this.runIncognitoCleanup();
-      }, delayMs);
+      this.incognitoNextRunAt = Number(this.settings.incognitoNextRunAt || this.incognitoNextRunAt || 0) || Date.now() + this.incognitoIntervalMinutes * 60 * 1000;
       this.emitState();
+      this.syncBackgroundIncognitoAlarm();
     }
 
     async runIncognitoCleanup() {
@@ -403,23 +682,30 @@
       if (!this.incognitoModeEnabled) {
         this.incognitoNextRunAt = null;
         this.emitState();
-        return;
+        return {
+          ok: false,
+          reason: "disabled"
+        };
       }
 
       if (this.isDeleting) {
         logger.warn("Incognito cleanup skipped because delete task is running.");
         this.syncIncognitoTimer();
-        return;
+        return {
+          ok: false,
+          reason: "busy"
+        };
       }
 
       toast.show("无痕模式开始自动清理历史对话。", "warning", 2600);
-      await this.deleteSessions("all", {
+      const result = await this.deleteSessions("all", {
         skipConfirm: true,
         skipUnlock: true,
         silentEmpty: true,
         source: "incognito"
       });
       this.syncIncognitoTimer();
+      return result;
     }
 
     formatPreviewTitle(target, index) {
@@ -471,9 +757,109 @@
       return {
         category,
         label: FAILURE_LABELS[category] || FAILURE_LABELS.unknown,
+        id: target?.id || "",
+        conversationId: target?.conversationId || "",
         title: target?.title || target?.id || "未命名对话",
         message: error?.message || "未知错误",
         suggestion: FAILURE_SUGGESTIONS[category] || FAILURE_SUGGESTIONS.unknown
+      };
+    }
+
+    async recordDeleteTask(mode, result, options = {}) {
+      if (!storage?.addTaskHistory || result?.reason === "delete_all_locked") {
+        return;
+      }
+      const failed = Number(result?.failed || 0);
+      const done = Number(result?.done || 0);
+      const total = Number(result?.total || done || 0);
+      const summary =
+        result?.reason === "cancelled"
+          ? `已取消，处理 ${done}/${total} 个对话，失败 ${failed} 个`
+          : failed > 0
+          ? `${done - failed}/${done} 个对话删除成功，失败 ${failed} 个`
+          : `已删除 ${done} 个对话`;
+      try {
+        await storage.addTaskHistory({
+          source: options.source || "manual",
+          mode,
+          ok: result?.ok !== false && failed === 0,
+          done,
+          failed,
+          total,
+          summary,
+          failureSummary: result?.failureSummary || {},
+          failureDetails: result?.failureDetails || [],
+          url: location.href
+        });
+      } catch (error) {
+        logger?.warn("Record delete task failed:", error);
+      }
+    }
+
+    resolveTargetForFailure(detail) {
+      if (detail?.conversationId) {
+        for (const item of this.sessionMap.values()) {
+          if (String(item.conversationId) === String(detail.conversationId)) {
+            return item;
+          }
+        }
+      }
+      return this.resolveTargetForSelected(detail?.id, detail?.title);
+    }
+
+    async retryFailedSessions() {
+      if (!this.lastFailureDetails.length) {
+        toast.show("没有可重试的失败对话。", "warning");
+        return {
+          ok: false,
+          reason: "empty"
+        };
+      }
+      const previous = this.lastFailureDetails.slice();
+      this.refreshSessions();
+      const targets = previous.map((detail) => this.resolveTargetForFailure(detail)).filter(Boolean);
+      if (!targets.length) {
+        toast.show("未找到可重试的失败对话，请刷新页面后再试。", "warning");
+        return {
+          ok: false,
+          reason: "empty"
+        };
+      }
+      const targetIds = new Set(targets.map((item) => item.id));
+      this.selectedIds = targetIds;
+      this.renderSelectionControls();
+      this.emitState();
+      return this.deleteSessions("selected", {
+        source: "retry",
+        skipConfirm: true
+      });
+    }
+
+    buildDiagnostics() {
+      this.refreshSessions();
+      const sessions = Array.from(this.sessionMap.values());
+      const menuProbe = sessions.slice(0, 5).map((session) => ({
+        title: this.formatPreviewTitle(session, 0),
+        conversationId: session.conversationId,
+        menuTriggerCount: this.getMenuTriggerNodes(session).length
+      }));
+      return {
+        generatedAt: new Date().toISOString(),
+        url: location.href,
+        userAgent: navigator.userAgent,
+        state: this.getState(),
+        sessionProbe: {
+          total: sessions.length,
+          sample: sessions.slice(0, 8).map((session) => ({
+            title: this.formatPreviewTitle(session, 0),
+            conversationId: session.conversationId,
+            hasElement: Boolean(session.element),
+            hasAnchor: Boolean(session.anchor)
+          })),
+          menuProbe
+        },
+        api: apiClient?.getDiagnostics?.() || null,
+        logs: logger?.getRecords?.().slice(-80) || []
       };
     }
 
@@ -495,8 +881,47 @@
         message: `${label} ${this.buildDeletePreviewMessage(mode, targets)}`,
         confirmText: "删除",
         cancelText: "取消",
-        danger: true
+        danger: true,
+        requiredText: mode === "all" ? "删除全部" : ""
       });
+    }
+
+    scheduleDeleteStatsRefresh(options = {}) {
+      if (this.deleteStatsTimer) {
+        window.clearTimeout(this.deleteStatsTimer);
+      }
+      this.deleteStats = {
+        ...(this.deleteStats || {}),
+        loading: true
+      };
+      this.emitState();
+      const delay = options.force ? 80 : 260;
+      this.deleteStatsTimer = window.setTimeout(() => {
+        this.deleteStatsTimer = null;
+        this.refreshDeleteStats({ force: Boolean(options.force) });
+      }, delay);
+    }
+
+    refreshDeleteStats(options = {}) {
+      this.refreshSessions({ force: Boolean(options.force), skipStats: true });
+      const allTargets = this.getDeleteTargets("all");
+      const selectedTargets = this.getDeleteTargets("selected");
+      const missingId = allTargets.filter((target) => !target?.conversationId).length;
+      const missingElement = allTargets.filter((target) => !(target?.element instanceof HTMLElement)).length;
+      this.deleteStats = {
+        updatedAt: Date.now(),
+        total: allTargets.length,
+        selected: selectedTargets.length,
+        deletable: allTargets.filter((target) => target?.conversationId).length,
+        selectedDeletable: selectedTargets.filter((target) => target?.conversationId).length,
+        missingConversationId: missingId,
+        missingElement,
+        apiClientReady: Boolean(apiClient?.deleteConversation),
+        apiFallbackToUi: Boolean(config?.api?.fallbackToUi),
+        loading: false
+      };
+      this.emitState();
+      return this.deleteStats;
     }
 
     resolveTargetForSelected(id, fallbackTitle) {
@@ -554,11 +979,15 @@
       }
 
       this.isDeleting = true;
+      this.deleteCancelRequested = false;
       this.emitState();
-      progress.show(options.source === "incognito" ? "无痕模式正在自动清理..." : mode === "all" ? "正在删除全部对话..." : "正在删除已选对话...");
+      progress.show(options.source === "incognito" ? "无痕模式正在自动清理..." : mode === "all" ? "正在删除全部对话..." : "正在删除已选对话...", {
+        onCancel: () => this.requestCancelDelete()
+      });
 
       let done = 0;
       let failed = 0;
+      let cancelled = false;
       const failureSummary = {};
       const failureDetails = [];
       const total = targets.length;
@@ -567,6 +996,10 @@
         const failedIds = new Set();
         let totalEstimate = total;
         while (true) {
+          if (this.deleteCancelRequested) {
+            cancelled = true;
+            break;
+          }
           this.refreshSessions();
           const current = Array.from(this.sessionMap.values()).find((item) => !failedIds.has(item.id));
           if (!current) {
@@ -594,6 +1027,10 @@
           conversationId: item.conversationId
         }));
         for (const queueItem of selectedQueue) {
+          if (this.deleteCancelRequested) {
+            cancelled = true;
+            break;
+          }
           this.refreshSessions();
           const current = this.resolveTargetForSelected(queueItem.id, queueItem.title) || queueItem;
           if (!current) {
@@ -621,16 +1058,28 @@
       }
 
       this.isDeleting = false;
+      this.deleteCancelRequested = false;
       this.emitState();
       progress.hide();
       this.scheduleRefresh();
       this.clearSelection(true);
+      this.lastFailureDetails = failureDetails.slice();
 
-      if (failed === 0) {
+      const result = {
+        ok: failed === 0 && !cancelled,
+        reason: cancelled ? "cancelled" : undefined,
+        done,
+        failed,
+        total,
+        failureSummary,
+        failureDetails
+      };
+      await this.recordDeleteTask(mode, result, options);
+
+      if (cancelled) {
+        toast.show(`已取消删除。本次已处理 ${done}/${total} 个对话，失败 ${failed} 个。`, failed > 0 ? "warning" : "info", 4200);
+      } else if (failed === 0) {
         toast.show(options.source === "incognito" ? `无痕模式已清理 ${done} 个对话。` : `已删除 ${done} 个对话。`, "success");
-        if (mode === "all" && options.source !== "incognito") {
-          this.schedulePageReloadAfterDeleteAll();
-        }
       } else {
         const reasonText = this.formatFailureSummary(failureSummary);
         const prefix = options.source === "incognito" ? "无痕模式自动清理" : "已删除";
@@ -641,14 +1090,11 @@
         });
       }
 
-      return {
-        ok: failed === 0,
-        done,
-        failed,
-        total,
-        failureSummary,
-        failureDetails
-      };
+      if (!cancelled && done > 0) {
+        this.schedulePageReloadAfterDeleteTask(options);
+      }
+
+      return result;
     }
 
     async waitForDeleteAction(referenceNode, timeoutMs = config.timing.menuOpenTimeoutMs) {
@@ -952,6 +1398,9 @@
         incognitoModeEnabled: this.incognitoModeEnabled,
         incognitoIntervalMinutes: this.incognitoIntervalMinutes,
         incognitoNextRunAt: this.incognitoNextRunAt,
+        settings: this.settings,
+        hasFailedRetryTargets: this.lastFailureDetails.length > 0,
+        deleteStats: this.deleteStats,
         url: location.href
       };
     }

@@ -54,7 +54,7 @@ body {
   border-radius: 12px;
   padding: 10px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -71,6 +71,8 @@ body {
 
 .status-item strong {
   font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .actions {
@@ -80,7 +82,8 @@ body {
   gap: 8px;
 }
 
-.incognito-card {
+.incognito-card,
+.history-card {
   margin-top: 12px;
   background: var(--p-card);
   border: 1px solid var(--p-border);
@@ -163,6 +166,26 @@ body {
   background: transparent;
   color: var(--p-danger);
   border-color: color-mix(in srgb, var(--p-danger) 55%, var(--p-border));
+}
+
+.btn-wide {
+  width: 100%;
+}
+
+.link-btn {
+  border: none;
+  background: transparent;
+  color: var(--p-primary);
+  padding: 2px 0;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.latest-task {
+  min-height: 18px;
+  color: var(--p-muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .risk-note {

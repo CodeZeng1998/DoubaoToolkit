@@ -19,6 +19,7 @@
       const danger = Boolean(options.danger);
       const confirmText = options.confirmText ?? "确认";
       const cancelText = options.cancelText ?? "取消";
+      const requiredText = String(options.requiredText || "");
 
       if (this.pendingResolver) {
         this.pendingResolver(false);
@@ -39,6 +40,11 @@
         dialog.innerHTML = `
           <div id="dtk-modal-title" class="dtk-modal-title"></div>
           <div id="dtk-modal-message" class="dtk-modal-message"></div>
+          <div class="dtk-modal-input-row" hidden>
+            <span class="dtk-modal-input-label"></span>
+            <input type="text" autocomplete="off" />
+            <span class="dtk-modal-input-hint" role="status" aria-live="polite"></span>
+          </div>
           <div class="dtk-modal-actions">
             <button type="button" class="dtk-btn dtk-btn-ghost" data-role="cancel"></button>
             <button type="button" class="dtk-btn ${danger ? "dtk-btn-danger" : "dtk-btn-primary"}" data-role="confirm"></button>
@@ -54,6 +60,46 @@
         this.currentNode = overlay;
         const cancelButton = dialog.querySelector("[data-role='cancel']");
         const confirmButton = dialog.querySelector("[data-role='confirm']");
+        const inputRow = dialog.querySelector(".dtk-modal-input-row");
+        const inputLabel = inputRow.querySelector(".dtk-modal-input-label");
+        const input = inputRow.querySelector("input");
+        const inputHint = inputRow.querySelector(".dtk-modal-input-hint");
+        let armed = !danger;
+
+        const updateConfirmState = () => {
+          const textMatches = !requiredText || input.value.trim() === requiredText;
+          confirmButton.disabled = !armed || !textMatches;
+          if (requiredText) {
+            const value = input.value.trim();
+            inputRow.classList.toggle("dtk-modal-input-error", Boolean(value) && !textMatches);
+            inputRow.classList.toggle("dtk-modal-input-ok", textMatches);
+            inputHint.textContent = !value
+              ? `需要输入“${requiredText}”后才能继续。`
+              : textMatches
+                ? "已匹配，可以继续。"
+                : `输入内容不匹配，请输入“${requiredText}”。`;
+          }
+        };
+
+        if (requiredText) {
+          inputRow.hidden = false;
+          const prefix = document.createTextNode("请输入 ");
+          const suffix = document.createTextNode(" 以继续");
+          const fillToken = document.createElement("button");
+          fillToken.type = "button";
+          fillToken.className = "dtk-modal-fill-token";
+          fillToken.textContent = requiredText;
+          fillToken.setAttribute("aria-label", `填入 ${requiredText}`);
+          inputLabel.replaceChildren(prefix, fillToken, suffix);
+          input.setAttribute("aria-label", `请输入 ${requiredText} 以继续`);
+          input.addEventListener("input", updateConfirmState);
+          fillToken.addEventListener("click", () => {
+            input.value = requiredText;
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+            input.focus();
+          });
+          updateConfirmState();
+        }
 
         if (danger) {
           confirmButton.disabled = true;
@@ -62,10 +108,14 @@
             if (!document.body.contains(confirmButton)) {
               return;
             }
+            armed = true;
             confirmButton.disabled = false;
             confirmButton.classList.remove("dtk-btn-arming");
             confirmButton.classList.add("dtk-btn-armed");
+            updateConfirmState();
           }, 520);
+        } else {
+          updateConfirmState();
         }
 
         const finish = (result) => {
@@ -89,7 +139,7 @@
         });
         cancelButton.addEventListener("click", () => finish(false));
         confirmButton.addEventListener("click", () => finish(true));
-        window.setTimeout(() => cancelButton.focus(), 0);
+        window.setTimeout(() => (requiredText ? input : cancelButton).focus(), 0);
       });
     }
   }

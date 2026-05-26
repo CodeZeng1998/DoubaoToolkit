@@ -70,16 +70,33 @@
   pointer-events: none;
 }
 
+.dtk-selection-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999998;
+  pointer-events: none;
+}
+
 .dtk-session-checkbox {
   width: 20px;
   height: 20px;
-  margin-right: 8px;
+  margin: 0;
   border: 1px solid var(--dtk-border);
   background: var(--dtk-bg);
   border-radius: 6px;
-  flex-shrink: 0;
   cursor: pointer;
+  position: fixed;
+  transform: translateY(-50%);
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.dtk-multi-select-enabled .dtk-session-selectable {
   position: relative;
+  box-sizing: border-box;
 }
 
 .dtk-session-checkbox[aria-checked="true"] {
@@ -91,13 +108,13 @@
 .dtk-session-checkbox[aria-checked="true"]::after {
   content: "";
   position: absolute;
-  left: 5px;
-  top: 2px;
+  left: 50%;
+  top: 48%;
   width: 5px;
   height: 9px;
   border: solid var(--dtk-primary);
   border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  transform: translate(-50%, -50%) rotate(45deg);
 }
 
 .dtk-multi-select-enabled .dtk-session-selected {
@@ -276,11 +293,73 @@
   color: var(--dtk-danger);
 }
 
+.dtk-modal-input-row {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--dtk-text-muted);
+  font-size: 12px;
+}
+
+.dtk-modal-input-row[hidden] {
+  display: none;
+}
+
+.dtk-modal-input-row input {
+  width: 100%;
+  border: 1px solid var(--dtk-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--dtk-bg);
+  color: var(--dtk-text);
+  font-size: 13px;
+}
+
+.dtk-modal-input-hint {
+  min-height: 16px;
+  font-size: 11px;
+  color: var(--dtk-text-muted);
+}
+
+.dtk-modal-input-error input {
+  border-color: var(--dtk-danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dtk-danger) 16%, transparent);
+}
+
+.dtk-modal-input-error .dtk-modal-input-hint {
+  color: var(--dtk-danger);
+}
+
+.dtk-modal-input-ok input {
+  border-color: var(--dtk-success);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dtk-success) 16%, transparent);
+}
+
+.dtk-modal-input-ok .dtk-modal-input-hint {
+  color: var(--dtk-success);
+}
+
 .dtk-modal-actions {
   margin-top: 16px;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.dtk-modal-fill-token {
+  border: 1px solid color-mix(in srgb, var(--dtk-danger) 45%, var(--dtk-border));
+  border-radius: 6px;
+  padding: 2px 7px;
+  background: color-mix(in srgb, var(--dtk-danger) 7%, transparent);
+  color: var(--dtk-danger);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  vertical-align: baseline;
+}
+
+.dtk-modal-fill-token:hover {
+  background: color-mix(in srgb, var(--dtk-danger) 13%, transparent);
 }
 
 .dtk-btn {
@@ -380,6 +459,12 @@
   margin-top: 5px;
   font-size: 12px;
   color: var(--dtk-text-muted);
+}
+
+.dtk-progress-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 @keyframes dtk-slide-in {
@@ -616,10 +701,15 @@
 
 .dtk-floating-metrics {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   font-size: 12px;
   color: var(--dtk-text-muted);
   margin-bottom: 10px;
+}
+
+.dtk-floating-metrics span {
+  white-space: nowrap;
 }
 
 .dtk-floating-actions {

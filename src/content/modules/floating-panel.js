@@ -33,6 +33,10 @@
       this.incognitoStatusNode = null;
       this.totalNode = null;
       this.selectedNode = null;
+      this.deletableNode = null;
+      this.selectedDeletableNode = null;
+      this.missingIdNode = null;
+      this.missingElementNode = null;
       this.statusNode = null;
       this.opacityInput = null;
       this.opacityValueNode = null;
@@ -57,6 +61,7 @@
       this.bind();
       this.updateResponsiveMode();
       this.update(sessionManager.getState());
+      sessionManager.scheduleDeleteStatsRefresh?.({ force: true });
       this.showOnboardingIfNeeded();
     }
 
@@ -78,6 +83,10 @@
           <div class="dtk-floating-metrics" aria-live="polite">
             <span>总数：<b class="dtk-metric-total">0</b></span>
             <span>已选：<b class="dtk-metric-selected">0</b></span>
+            <span>可删：<b class="dtk-metric-deletable">0</b></span>
+            <span>已选可删：<b class="dtk-metric-selected-deletable">0</b></span>
+            <span>缺 ID：<b class="dtk-metric-missing-id">0</b></span>
+            <span>缺元素：<b class="dtk-metric-missing-element">0</b></span>
             <span class="dtk-floating-status">就绪</span>
           </div>
           <div class="dtk-floating-actions">
@@ -146,6 +155,10 @@
       this.incognitoStatusNode = root.querySelector(".dtk-incognito-status");
       this.totalNode = root.querySelector(".dtk-metric-total");
       this.selectedNode = root.querySelector(".dtk-metric-selected");
+      this.deletableNode = root.querySelector(".dtk-metric-deletable");
+      this.selectedDeletableNode = root.querySelector(".dtk-metric-selected-deletable");
+      this.missingIdNode = root.querySelector(".dtk-metric-missing-id");
+      this.missingElementNode = root.querySelector(".dtk-metric-missing-element");
       this.statusNode = root.querySelector(".dtk-floating-status");
       this.opacityInput = root.querySelector("[data-action='opacity']");
       this.opacityValueNode = root.querySelector(".dtk-opacity-value");
@@ -325,6 +338,10 @@
       return !this.isDrawerMode() && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     }
 
+    isMultiSelectActive() {
+      return Boolean(this.lastState?.multiSelectMode || sessionManager.getState?.().multiSelectMode);
+    }
+
     clearHoverCloseTimer() {
       if (!this.hoverCloseTimer) {
         return;
@@ -335,12 +352,12 @@
 
     scheduleHoverClose() {
       this.clearHoverCloseTimer();
-      if (!this.canHoverOpen() || this.dragState || this.resizeState) {
+      if (!this.canHoverOpen() || this.dragState || this.resizeState || this.isMultiSelectActive()) {
         return;
       }
       this.hoverCloseTimer = window.setTimeout(() => {
         this.hoverCloseTimer = null;
-        if (this.panelOpen && !this.dragState && !this.resizeState) {
+        if (this.panelOpen && !this.dragState && !this.resizeState && !this.isMultiSelectActive()) {
           this.setPanelOpen(false);
         }
       }, 220);
@@ -351,6 +368,9 @@
       this.updatePanelPlacement();
       this.root.classList.toggle("open", this.panelOpen);
       this.toggleBtn.setAttribute("aria-expanded", String(this.panelOpen));
+      if (this.panelOpen) {
+        sessionManager.scheduleDeleteStatsRefresh?.({ force: true });
+      }
       if (this.panelOpen && options.focus !== false) {
         window.setTimeout(() => this.modeBtn.focus(), 0);
       }
@@ -463,7 +483,15 @@
         sessionManager.setMultiSelectMode(!state.multiSelectMode);
       });
 
-      this.selectAllBtn.addEventListener("click", () => sessionManager.selectAll());
+      this.selectAllBtn.addEventListener("click", () => {
+        const state = sessionManager.getState();
+        const allSelected = (state.totalSessions || 0) > 0 && (state.selectedCount || 0) >= (state.totalSessions || 0);
+        if (allSelected) {
+          sessionManager.clearSelection();
+        } else {
+          sessionManager.selectAll();
+        }
+      });
       this.clearBtn.addEventListener("click", () => sessionManager.clearSelection());
       this.deleteSelectedBtn.addEventListener("click", async () => sessionManager.deleteSessions("selected"));
       this.deleteAllBtn.addEventListener("click", async () => sessionManager.deleteSessions("all"));
@@ -486,7 +514,7 @@
       window.addEventListener("dtk:state-changed", (event) => this.update(event.detail));
       window.addEventListener("resize", () => this.updateResponsiveMode());
       document.addEventListener("click", (event) => {
-        if (this.panelOpen && !this.root.contains(event.target)) {
+        if (this.panelOpen && !this.root.contains(event.target) && !this.isMultiSelectActive()) {
           this.setPanelOpen(false);
         }
       });
@@ -517,7 +545,13 @@
         sessionManager.setMultiSelectMode(!state.multiSelectMode);
       } else if (key === "a" && this.lastState?.multiSelectMode) {
         event.preventDefault();
-        sessionManager.selectAll();
+        const allSelected =
+          (this.lastState.totalSessions || 0) > 0 && (this.lastState.selectedCount || 0) >= (this.lastState.totalSessions || 0);
+        if (allSelected) {
+          sessionManager.clearSelection();
+        } else {
+          sessionManager.selectAll();
+        }
       }
     }
 
@@ -555,11 +589,22 @@
         return;
       }
       this.lastState = state;
+      if (state.multiSelectMode) {
+        this.clearHoverCloseTimer();
+      }
       this.countNode.textContent = String(state.selectedCount || 0);
       this.totalNode.textContent = String(state.totalSessions || 0);
       this.selectedNode.textContent = String(state.selectedCount || 0);
+      const stats = state.deleteStats || {};
+      this.deletableNode.textContent = String(stats.deletable ?? state.totalSessions ?? 0);
+      this.selectedDeletableNode.textContent = String(stats.selectedDeletable ?? state.selectedCount ?? 0);
+      this.missingIdNode.textContent = String(stats.missingConversationId ?? 0);
+      this.missingElementNode.textContent = String(stats.missingElement ?? 0);
       this.modeBtn.textContent = state.multiSelectMode ? "关闭多选" : "开启多选";
-      this.statusNode.textContent = state.isDeleting ? "删除中..." : "就绪";
+      const allSelected = (state.totalSessions || 0) > 0 && (state.selectedCount || 0) >= (state.totalSessions || 0);
+      this.selectAllBtn.textContent = allSelected ? "取消全选" : "全选";
+      this.selectAllBtn.setAttribute("aria-pressed", String(allSelected));
+      this.statusNode.textContent = state.isDeleting ? "删除中..." : stats.loading ? "统计中..." : "已统计";
 
       this.root.classList.toggle("selecting", Boolean(state.multiSelectMode) && !state.isDeleting);
       this.root.classList.toggle("deleting", Boolean(state.isDeleting));

@@ -4,6 +4,21 @@
   const config = global.DoubaoToolkit?.config;
   const domUtils = global.DoubaoToolkit?.domUtils;
   const logger = global.DoubaoToolkit?.logger;
+  const SESSION_CACHE_TTL_MS = 300;
+  const MOBILE_SESSION_HINTS = [
+    "手机版",
+    "手机端",
+    "移动端",
+    "来自手机",
+    "来自移动端",
+    "来自豆包app",
+    "豆包app",
+    "doubao app",
+    "mobile",
+    "mobile app"
+  ];
+  let cachedSessions = null;
+  let cachedAt = 0;
 
   function getRouterConversations() {
     const cells =
@@ -17,12 +32,91 @@
       if (!/^\d+$/.test(id)) {
         continue;
       }
+      if (isMobileConversationData(conv)) {
+        continue;
+      }
       list.push({
         id,
         title: String(conv?.name || "").trim()
       });
     }
     return list;
+  }
+
+  function hasMobileSessionHint(value) {
+    const text = domUtils.normalizeText(value || "");
+    if (!text) {
+      return false;
+    }
+    return MOBILE_SESSION_HINTS.some((hint) => text.includes(domUtils.normalizeText(hint)));
+  }
+
+  function isMobileConversationData(conversation) {
+    if (!conversation || typeof conversation !== "object") {
+      return false;
+    }
+    const textFields = [
+      conversation.platform,
+      conversation.source,
+      conversation.source_type,
+      conversation.client_type,
+      conversation.device_type,
+      conversation.create_platform,
+      conversation.conversation_type,
+      conversation.tag,
+      conversation.label,
+      conversation.name
+    ];
+    if (textFields.some(hasMobileSessionHint)) {
+      return true;
+    }
+    try {
+      return hasMobileSessionHint(JSON.stringify(conversation).slice(0, 2000));
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function getOwnText(element) {
+    if (!(element instanceof HTMLElement)) {
+      return "";
+    }
+    return Array.from(element.childNodes)
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.textContent || "")
+      .join(" ");
+  }
+
+  function isMobileSessionNode(element) {
+    if (!(element instanceof HTMLElement)) {
+      return false;
+    }
+    const markerSelectors = [
+      "[aria-label*='手机版']",
+      "[aria-label*='手机端']",
+      "[aria-label*='移动端']",
+      "[title*='手机版']",
+      "[title*='手机端']",
+      "[title*='移动端']",
+      "[data-testid*='mobile' i]"
+    ];
+    if (markerSelectors.some((selector) => element.matches?.(selector) || element.querySelector?.(selector))) {
+      return true;
+    }
+    const compactTexts = [
+      getOwnText(element),
+      element.getAttribute("aria-label"),
+      element.getAttribute("title"),
+      element.getAttribute("data-testid")
+    ];
+    if (compactTexts.some(hasMobileSessionHint)) {
+      return true;
+    }
+    const badgeText = Array.from(element.querySelectorAll("[class*='tag' i],[class*='badge' i],[class*='label' i],span"))
+      .slice(0, 24)
+      .map((node) => getOwnText(node) || node.getAttribute("aria-label") || node.getAttribute("title") || "")
+      .join(" ");
+    return hasMobileSessionHint(badgeText);
   }
 
   function findAnchorByConversationId(conversationId) {
@@ -163,6 +257,9 @@
       if (!container || !domUtils.isVisible(container)) {
         continue;
       }
+      if (isMobileSessionNode(container)) {
+        continue;
+      }
       sessions.push({
         id: `conv-${item.id}`,
         conversationId: item.id,
@@ -196,6 +293,9 @@
       if (!container) {
         return;
       }
+      if (isMobileSessionNode(container)) {
+        return;
+      }
       list.push({
         id: `conv-${id}`,
         conversationId: id,
@@ -219,7 +319,12 @@
     return list;
   }
 
-  function getSessionItems() {
+  function getSessionItems(options = {}) {
+    const now = Date.now();
+    if (!options.force && cachedSessions && now - cachedAt < SESSION_CACHE_TTL_MS) {
+      return cachedSessions.filter((session) => session?.element && document.body.contains(session.element));
+    }
+
     const fromRouter = getSessionsFromRouterData();
     const fallback = getSessionsFromDomFallback();
     const merged = [];
@@ -236,7 +341,14 @@
       dom: fallback.length,
       merged: merged.length
     });
+    cachedSessions = merged;
+    cachedAt = now;
     return merged;
+  }
+
+  function invalidateSessionCache() {
+    cachedSessions = null;
+    cachedAt = 0;
   }
 
   function getCandidateButtons(sessionItemNode) {
@@ -404,6 +516,7 @@
   global.DoubaoToolkit = global.DoubaoToolkit || {};
   global.DoubaoToolkit.chatSelectors = {
     getSessionItems,
+    invalidateSessionCache,
     findDeleteMenuButton,
     findDeleteActionNode,
     findConfirmDeleteNode,

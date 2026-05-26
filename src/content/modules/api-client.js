@@ -7,6 +7,10 @@
 
   const SECURITY_PARAM_NAMES = ["device_id", "web_id", "tea_uuid", "msToken", "a_bogus"];
   const RESOURCE_PARAM_HINTS = ["/samantha/", "/alice/", "/api/"];
+  const DELETE_URL_CACHE_TTL_MS = 30000;
+  let cachedDeleteUrl = null;
+  let cachedDeleteUrlAt = 0;
+  let cachedDeleteUrlLocation = "";
 
   function addParams(target, source, overwrite = false) {
     if (!source) {
@@ -103,6 +107,15 @@
   }
 
   function buildDeleteUrl() {
+    const now = Date.now();
+    if (
+      cachedDeleteUrl &&
+      cachedDeleteUrlLocation === location.href &&
+      now - cachedDeleteUrlAt < DELETE_URL_CACHE_TTL_MS
+    ) {
+      return new URL(cachedDeleteUrl);
+    }
+
     const endpoint = config?.api?.deleteEndpoint || "/samantha/thread/delete";
     const url = new URL(endpoint, location.origin);
     const params = new URLSearchParams();
@@ -116,6 +129,9 @@
     addParams(params, readRuntimeIdentityParams(), false);
 
     url.search = params.toString();
+    cachedDeleteUrl = url.toString();
+    cachedDeleteUrlAt = now;
+    cachedDeleteUrlLocation = location.href;
     return url;
   }
 
@@ -214,6 +230,11 @@
 
   global.DoubaoToolkit = global.DoubaoToolkit || {};
   global.DoubaoToolkit.apiClient = {
-    deleteConversation
+    deleteConversation,
+    getDiagnostics: () => ({
+      deleteEndpoint: config?.api?.deleteEndpoint || "/samantha/thread/delete",
+      cacheAgeMs: cachedDeleteUrlAt ? Date.now() - cachedDeleteUrlAt : null,
+      hasCachedDeleteUrl: Boolean(cachedDeleteUrl)
+    })
   };
 })(window);

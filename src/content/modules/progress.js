@@ -8,6 +8,8 @@
       this.detailNode = null;
       this.barNode = null;
       this.metaNode = null;
+      this.cancelButton = null;
+      this.onCancel = null;
       this.startedAt = 0;
     }
 
@@ -25,6 +27,9 @@
           </div>
           <div class="dtk-progress-detail"></div>
           <div class="dtk-progress-meta" aria-live="polite"></div>
+          <div class="dtk-progress-actions">
+            <button type="button" class="dtk-btn dtk-btn-ghost dtk-progress-cancel">取消删除</button>
+          </div>
         </div>
       `;
       document.body.appendChild(this.root);
@@ -32,15 +37,27 @@
       this.detailNode = this.root.querySelector(".dtk-progress-detail");
       this.barNode = this.root.querySelector(".dtk-progress-bar-fill");
       this.metaNode = this.root.querySelector(".dtk-progress-meta");
+      this.cancelButton = this.root.querySelector(".dtk-progress-cancel");
+      this.cancelButton.addEventListener("click", () => {
+        this.cancelButton.disabled = true;
+        this.cancelButton.textContent = "正在取消...";
+        if (typeof this.onCancel === "function") {
+          this.onCancel();
+        }
+      });
     }
 
-    show(title) {
+    show(title, options = {}) {
       this.ensure();
       this.startedAt = Date.now();
+      this.onCancel = typeof options.onCancel === "function" ? options.onCancel : null;
       this.titleNode.textContent = title ?? "处理中";
       this.detailNode.textContent = "0 / 0";
       this.metaNode.textContent = "正在估算剩余时间...";
       this.barNode.style.width = "0%";
+      this.cancelButton.hidden = !this.onCancel;
+      this.cancelButton.disabled = false;
+      this.cancelButton.textContent = "取消删除";
       this.root.classList.add("visible");
     }
 
@@ -77,6 +94,7 @@
       }
       this.root.classList.remove("visible");
       this.startedAt = 0;
+      this.onCancel = null;
     }
   }
 

@@ -23,6 +23,22 @@
           <strong id="selectedSessions">0</strong>
         </div>
         <div class="status-item">
+          <span>可删</span>
+          <strong id="deletableSessions">0</strong>
+        </div>
+        <div class="status-item">
+          <span>已选可删</span>
+          <strong id="selectedDeletableSessions">0</strong>
+        </div>
+        <div class="status-item">
+          <span>缺 ID</span>
+          <strong id="missingIdSessions">0</strong>
+        </div>
+        <div class="status-item">
+          <span>缺元素</span>
+          <strong id="missingElementSessions">0</strong>
+        </div>
+        <div class="status-item">
           <span>模式</span>
           <strong id="modeLabel">关闭</strong>
         </div>
@@ -34,6 +50,7 @@
         <button id="clearSelectionBtn" class="btn btn-ghost">清空选择</button>
         <button id="deleteSelectedBtn" class="btn btn-danger">删除已选</button>
         <button id="deleteAllBtn" class="btn btn-danger-outline">全部删除</button>
+        <button id="cancelDeleteBtn" class="btn btn-ghost btn-wide" type="button">取消当前删除</button>
         <span id="deleteAllRisk" class="risk-note">高风险：首次使用需启用</span>
       </section>
 
@@ -53,9 +70,19 @@
         </label>
       </section>
 
+      <section class="history-card">
+        <header class="section-header">
+          <strong>最近任务</strong>
+          <button id="openOptionsBtn" class="link-btn" type="button">设置</button>
+        </header>
+        <div id="latestTask" class="latest-task">暂无任务记录</div>
+        <button id="retryFailedBtn" class="btn btn-ghost btn-wide" type="button">重试失败项</button>
+      </section>
+
       <p id="message" class="message"></p>
     </main>
 
+    <script src="../common/storage.js"></script>
     <script src="./popup.js"></script>
   </body>
 </html>

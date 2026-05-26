@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>豆包工具箱设置</title>
+    <link rel="stylesheet" href="./options.css" />
+  </head>
+  <body>
+    <main class="options-shell">
+      <header class="page-header">
+        <div>
+          <h1>豆包工具箱设置</h1>
+          <p>管理删除策略、自动清理、性能参数和任务记录。</p>
+        </div>
+        <span id="saveStatus" class="save-status">已加载</span>
+      </header>
+
+      <section class="overview-grid" aria-label="系统概览">
+        <article class="overview-card">
+          <span>任务记录</span>
+          <strong id="overviewHistoryCount">0</strong>
+          <small id="overviewHistoryMeta">暂无记录</small>
+        </article>
+        <article class="overview-card">
+          <span>失败任务</span>
+          <strong id="overviewFailedCount">0</strong>
+          <small>可在任务历史中查看详情</small>
+        </article>
+        <article class="overview-card">
+          <span>存储占用</span>
+          <strong id="overviewStorageBytes">0 KB</strong>
+          <small id="overviewStorageMeta">设置与任务历史</small>
+        </article>
+        <article class="overview-card">
+          <span>豆包页面</span>
+          <strong id="overviewDoubaoTabs">0</strong>
+          <small id="overviewDoubaoMeta">未检测</small>
+        </article>
+      </section>
+
+      <section class="settings-grid">
+        <article class="panel">
+          <header class="panel-header">
+            <h2>删除策略</h2>
+            <div class="panel-actions">
+              <button id="exportSettingsBtn" class="ghost-btn" type="button">导出设置</button>
+              <button id="importSettingsBtn" class="ghost-btn" type="button">导入设置</button>
+              <button id="resetSettingsBtn" class="ghost-btn danger-ghost-btn" type="button">恢复默认</button>
+              <input id="importSettingsFile" type="file" accept="application/json,.json" hidden />
+            </div>
+          </header>
+          <label class="setting-row">
+            <span>
+              <strong>API 失败后回退到页面操作</strong>
+              <small>接口删除失败时，继续尝试模拟页面菜单删除。</small>
+            </span>
+            <input id="apiFallbackToUi" type="checkbox" />
+          </label>
+          <label class="setting-row">
+            <span>
+              <strong>调试日志</strong>
+              <small>在控制台保留更详细的运行日志，便于排查选择器和接口问题。</small>
+            </span>
+            <input id="debugLogs" type="checkbox" />
+          </label>
+        </article>
+
+        <article class="panel">
+          <header class="panel-header">
+            <h2>性能参数</h2>
+          </header>
+          <label class="setting-row">
+            <span>
+              <strong>删除步进延迟</strong>
+              <small>每次删除后的等待时间，页面较慢时可调大。</small>
+            </span>
+            <input id="deleteStepDelayMs" type="number" min="80" max="2000" step="20" />
+          </label>
+          <label class="setting-row">
+            <span>
+              <strong>最大重试次数</strong>
+              <small>单条对话删除失败时的最大重试次数。</small>
+            </span>
+            <input id="maxRetryAttempts" type="number" min="1" max="10" step="1" />
+          </label>
+        </article>
+
+        <article class="panel">
+          <header class="panel-header">
+            <h2>无痕模式</h2>
+            <span id="incognitoSummary" class="panel-note">未开启</span>
+          </header>
+          <label class="setting-row">
+            <span>
+              <strong>自动定时清理</strong>
+              <small>由扩展后台定时触发；需要至少打开一个豆包页面执行清理。</small>
+            </span>
+            <input id="incognitoModeEnabled" type="checkbox" />
+          </label>
+          <label class="setting-row">
+            <span>
+              <strong>清理间隔</strong>
+              <small>最短 1 分钟，最长 1440 分钟。</small>
+            </span>
+            <input id="incognitoIntervalMinutes" type="number" min="1" max="1440" step="1" />
+          </label>
+        </article>
+      </section>
+
+      <section class="panel history-panel">
+        <header class="panel-header">
+          <h2>任务历史</h2>
+          <div class="panel-actions">
+            <button id="exportHistoryBtn" class="ghost-btn" type="button">导出记录</button>
+            <button id="clearHistoryBtn" class="ghost-btn danger-ghost-btn" type="button">清空记录</button>
+          </div>
+        </header>
+        <div class="history-toolbar">
+          <label>
+            <span>筛选</span>
+            <input id="historySearchInput" type="search" placeholder="来源、摘要或失败原因" />
+          </label>
+          <label>
+            <span>状态</span>
+            <select id="historyStatusFilter">
+              <option value="all">全部</option>
+              <option value="success">成功</option>
+              <option value="failed">异常</option>
+            </select>
+          </label>
+        </div>
+        <div id="historyList" class="history-list"></div>
+        <pre id="historyDetail" class="detail-preview">选择一条任务查看详情。</pre>
+      </section>
+
+      <section class="panel diagnostics-panel">
+        <header class="panel-header">
+          <h2>诊断报告</h2>
+          <div class="panel-actions">
+            <button id="openDoubaoPageBtn" class="ghost-btn" type="button">打开豆包</button>
+            <button id="runHealthCheckBtn" class="ghost-btn" type="button">运行健康检查</button>
+            <button id="exportHealthReportBtn" class="ghost-btn" type="button">导出健康报告</button>
+            <button id="exportDiagnosticsBtn" class="ghost-btn" type="button">导出诊断</button>
+          </div>
+        </header>
+        <p class="diagnostics-copy">从当前打开的豆包页面读取工具状态、会话识别结果、API 缓存状态和最近日志，用于排查页面兼容问题。</p>
+        <pre id="diagnosticsPreview" class="diagnostics-preview">尚未生成诊断报告。</pre>
+      </section>
+    </main>
+
+    <script src="../common/storage.js"></script>
+    <script src="./options.js"></script>
+  </body>
+</html>
