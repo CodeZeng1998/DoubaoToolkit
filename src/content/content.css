@@ -598,7 +598,7 @@
 .dtk-floating-root {
   position: fixed;
   right: 16px;
-  bottom: 88px;
+  top: 20px;
   z-index: 999999;
   font-family: "Aptos", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", system-ui, sans-serif;
   user-select: none;
@@ -611,11 +611,9 @@
 .dtk-floating-toggle {
   width: 52px;
   height: 52px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--dtk-primary) 48%, var(--dtk-border));
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--dtk-primary) 18%, transparent) 0 49%, transparent 50%),
-    linear-gradient(180deg, var(--dtk-primary), var(--dtk-primary-strong));
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--dtk-primary) 40%, var(--dtk-border));
+  background: linear-gradient(135deg, var(--dtk-primary), var(--dtk-primary-strong));
   color: #fff;
   box-shadow: var(--dtk-shadow);
   cursor: pointer;
@@ -624,20 +622,24 @@
   position: relative;
   touch-action: none;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.dtk-floating-toggle::before {
-  content: "";
-  position: absolute;
-  inset: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.32);
-  border-radius: 5px;
-  pointer-events: none;
+  padding: 0;
 }
 
 .dtk-floating-toggle:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--dtk-primary) 28%, transparent);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--dtk-primary) 26%, transparent);
+}
+
+.dtk-floating-icon {
+  width: 24px;
+  height: 24px;
+  color: #fff;
+  transition: transform 0.2s ease;
+}
+
+.dtk-floating-root.selecting .dtk-floating-icon,
+.dtk-floating-root.deleting .dtk-floating-icon {
+  transform: scale(1.05);
 }
 
 .dtk-floating-root.deleting .dtk-floating-toggle::after {
@@ -648,13 +650,6 @@
   border: 2px solid rgba(255, 255, 255, 0.55);
   border-top-color: var(--dtk-danger);
   animation: dtk-spin 0.75s linear infinite;
-}
-
-.dtk-floating-dot {
-  font-weight: 700;
-  font-size: 13px;
-  line-height: 1;
-  letter-spacing: 0.04em;
 }
 
 .dtk-floating-count {

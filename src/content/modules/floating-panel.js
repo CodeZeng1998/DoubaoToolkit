@@ -72,7 +72,11 @@
       root.className = "dtk-floating-root";
       root.innerHTML = `
         <button type="button" class="dtk-floating-toggle" aria-label="豆包工具箱，拖动移动，悬停或点击展开">
-          <span class="dtk-floating-dot">工具</span>
+          <svg class="dtk-floating-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 6h10M3 10h10M3 14h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M16 8c0-1.1.9-2 2-2h1c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2h-1c-1.1 0-2-.9-2-2V8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            <circle cx="18.5" cy="12" r="0.8" fill="currentColor"/>
+          </svg>
           <span class="dtk-floating-count" aria-live="polite">0</span>
         </button>
         <section class="dtk-floating-panel" role="dialog" aria-label="豆包工具箱控制面板">
@@ -174,7 +178,7 @@
 
     getDefaultPosition() {
       const x = Math.max(12, window.innerWidth - 80);
-      const y = Math.max(12, window.innerHeight - 180);
+      const y = 20;
       return { x, y };
     }
 
@@ -612,15 +616,15 @@
 
       this.root.classList.toggle("selecting", Boolean(state.multiSelectMode) && !state.isDeleting);
       this.root.classList.toggle("deleting", Boolean(state.isDeleting));
-      const dot = this.root.querySelector(".dtk-floating-dot");
+      const icon = this.root.querySelector(".dtk-floating-icon");
       if (state.isDeleting) {
-        dot.textContent = "删";
+        icon.innerHTML = `<path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`;
         this.countNode.textContent = "";
       } else if (state.multiSelectMode) {
-        dot.textContent = "选";
+        icon.innerHTML = `<rect x="3" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M5 7l2 2 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="13" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/><rect x="3" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/><rect x="13" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/>`;
         this.countNode.textContent = String(state.selectedCount || 0);
       } else {
-        dot.textContent = "工具";
+        icon.innerHTML = `<path d="M3 6h10M3 10h10M3 14h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 8c0-1.1.9-2 2-2h1c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2h-1c-1.1 0-2-.9-2-2V8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.5" cy="12" r="0.8" fill="currentColor"/>`;
         this.countNode.textContent = "";
       }
 

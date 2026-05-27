@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,7 +10,7 @@
     <main class="popup">
       <header class="popup-header">
         <h1>豆包工具箱</h1>
-        <p>更快管理豆包历史对话。</p>
+        <p>快速管理历史对话</p>
       </header>
 
       <section class="status-card">
@@ -26,31 +26,14 @@
           <span>可删</span>
           <strong id="deletableSessions">0</strong>
         </div>
-        <div class="status-item">
-          <span>已选可删</span>
-          <strong id="selectedDeletableSessions">0</strong>
-        </div>
-        <div class="status-item">
-          <span>缺 ID</span>
-          <strong id="missingIdSessions">0</strong>
-        </div>
-        <div class="status-item">
-          <span>缺元素</span>
-          <strong id="missingElementSessions">0</strong>
-        </div>
-        <div class="status-item">
-          <span>模式</span>
-          <strong id="modeLabel">关闭</strong>
-        </div>
       </section>
 
       <section class="actions">
         <button id="toggleModeBtn" class="btn btn-primary">开启多选</button>
         <button id="selectAllBtn" class="btn btn-ghost">全选</button>
-        <button id="clearSelectionBtn" class="btn btn-ghost">清空选择</button>
         <button id="deleteSelectedBtn" class="btn btn-danger">删除已选</button>
         <button id="deleteAllBtn" class="btn btn-danger-outline">全部删除</button>
-        <button id="cancelDeleteBtn" class="btn btn-ghost btn-wide" type="button">取消当前删除</button>
+        <button id="cancelDeleteBtn" class="btn btn-ghost btn-wide" type="button">取消删除</button>
         <span id="deleteAllRisk" class="risk-note">高风险：首次使用需启用</span>
       </section>
 
@@ -61,11 +44,11 @@
         </header>
         <label class="toggle-row">
           <input id="incognitoToggle" type="checkbox" />
-          <span>自动定时删除全部历史对话</span>
+          <span>自动定时清理</span>
           <span id="incognitoCountdown" class="countdown" hidden></span>
         </label>
         <label class="interval-row">
-          <span>清理间隔</span>
+          <span>间隔</span>
           <input id="incognitoInterval" type="number" min="1" max="1440" step="1" />
           <span>分钟</span>
         </label>
