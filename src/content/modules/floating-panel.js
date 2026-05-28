@@ -21,6 +21,7 @@
     constructor() {
       this.root = null;
       this.toggleBtn = null;
+      this.iconNode = null;
       this.panel = null;
       this.countNode = null;
       this.modeBtn = null;
@@ -97,6 +98,20 @@
           </div>
           <div class="dtk-floating-actions">
             <div class="dtk-action-group">
+              <div class="dtk-action-group-title">无痕模式</div>
+              <label class="dtk-toggle-row">
+                <input type="checkbox" data-action="incognito-toggle" aria-label="自动定时清理" />
+                <span>自动定时清理</span>
+                <span class="dtk-incognito-countdown" hidden></span>
+              </label>
+              <label class="dtk-interval-row">
+                <span>间隔</span>
+                <input type="number" data-action="incognito-interval" min="1" max="1440" step="1" aria-label="无痕模式清理间隔分钟数" />
+                <span>分钟</span>
+              </label>
+              <span class="dtk-incognito-status">无痕模式未开启</span>
+            </div>
+            <div class="dtk-action-group">
               <div class="dtk-action-group-title">选择</div>
               <div class="dtk-action-grid">
                 <button type="button" data-action="toggle-mode" class="dtk-mini-btn dtk-mini-btn-primary" title="Ctrl+M">开启多选</button>
@@ -111,20 +126,6 @@
                 <button type="button" data-action="delete-all" class="dtk-mini-btn dtk-mini-btn-danger-high" title="Ctrl+Shift+D">全部删除</button>
               </div>
               <span class="dtk-delete-all-risk">高风险：首次使用需启用</span>
-            </div>
-            <div class="dtk-action-group">
-              <div class="dtk-action-group-title">无痕模式</div>
-              <label class="dtk-toggle-row">
-                <input type="checkbox" data-action="incognito-toggle" aria-label="自动定时清理" />
-                <span>自动定时清理</span>
-                <span class="dtk-incognito-countdown" hidden></span>
-              </label>
-              <label class="dtk-interval-row">
-                <span>间隔</span>
-                <input type="number" data-action="incognito-interval" min="1" max="1440" step="1" aria-label="无痕模式清理间隔分钟数" />
-                <span>分钟</span>
-              </label>
-              <span class="dtk-incognito-status">无痕模式未开启</span>
             </div>
             <div class="dtk-action-group">
               <div class="dtk-action-group-title">主题</div>
@@ -150,6 +151,7 @@
       document.body.appendChild(root);
       this.root = root;
       this.toggleBtn = root.querySelector(".dtk-floating-toggle");
+      this.iconNode = root.querySelector(".dtk-floating-icon");
       this.panel = root.querySelector(".dtk-floating-panel");
       this.countNode = root.querySelector(".dtk-floating-count");
       this.modeBtn = root.querySelector("[data-action='toggle-mode']");
@@ -596,6 +598,9 @@
       if (!state) {
         return;
       }
+      if (!this.root || !this.panel || !this.toggleBtn || !this.iconNode) {
+        return;
+      }
       this.lastState = state;
       if (state.multiSelectMode) {
         this.clearHoverCloseTimer();
@@ -616,15 +621,14 @@
 
       this.root.classList.toggle("selecting", Boolean(state.multiSelectMode) && !state.isDeleting);
       this.root.classList.toggle("deleting", Boolean(state.isDeleting));
-      const icon = this.root.querySelector(".dtk-floating-icon");
       if (state.isDeleting) {
-        icon.innerHTML = `<path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`;
+        this.iconNode.innerHTML = `<path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`;
         this.countNode.textContent = "";
       } else if (state.multiSelectMode) {
-        icon.innerHTML = `<rect x="3" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M5 7l2 2 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="13" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/><rect x="3" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/><rect x="13" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/>`;
+        this.iconNode.innerHTML = `<rect x="3" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M5 7l2 2 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="13" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/><rect x="3" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/><rect x="13" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/>`;
         this.countNode.textContent = String(state.selectedCount || 0);
       } else {
-        icon.innerHTML = `<path d="M3 6h10M3 10h10M3 14h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 8c0-1.1.9-2 2-2h1c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2h-1c-1.1 0-2-.9-2-2V8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.5" cy="12" r="0.8" fill="currentColor"/>`;
+        this.iconNode.innerHTML = `<path d="M3 6h10M3 10h10M3 14h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 8c0-1.1.9-2 2-2h1c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2h-1c-1.1 0-2-.9-2-2V8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.5" cy="12" r="0.8" fill="currentColor"/>`;
         this.countNode.textContent = "";
       }
 
@@ -642,7 +646,10 @@
       for (const button of this.panel.querySelectorAll("button")) {
         button.disabled = disabled;
       }
-      this.root.querySelector("[data-action='collapse']").disabled = false;
+      const collapseButton = this.root.querySelector("[data-action='collapse']");
+      if (collapseButton) {
+        collapseButton.disabled = false;
+      }
       this.deleteSelectedBtn.disabled = disabled || (state.selectedCount || 0) === 0;
       this.incognitoToggle.disabled = disabled;
       this.incognitoIntervalInput.disabled = disabled;
