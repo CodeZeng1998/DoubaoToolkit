@@ -44,9 +44,9 @@
           <header class="panel-header">
             <h2>删除策略</h2>
             <div class="panel-actions">
-              <button id="exportSettingsBtn" class="ghost-btn" type="button">导出设置</button>
-              <button id="importSettingsBtn" class="ghost-btn" type="button">导入设置</button>
-              <button id="resetSettingsBtn" class="ghost-btn danger-ghost-btn" type="button">恢复默认</button>
+              <button id="exportSettingsBtn" class="ghost-btn" type="button" data-icon="download">导出设置</button>
+              <button id="importSettingsBtn" class="ghost-btn" type="button" data-icon="upload">导入设置</button>
+              <button id="resetSettingsBtn" class="ghost-btn danger-ghost-btn" type="button" data-icon="refresh">恢复默认</button>
               <input id="importSettingsFile" type="file" accept="application/json,.json" hidden />
             </div>
           </header>
@@ -112,8 +112,8 @@
         <header class="panel-header">
           <h2>任务历史</h2>
           <div class="panel-actions">
-            <button id="exportHistoryBtn" class="ghost-btn" type="button">导出记录</button>
-            <button id="clearHistoryBtn" class="ghost-btn danger-ghost-btn" type="button">清空记录</button>
+            <button id="exportHistoryBtn" class="ghost-btn" type="button" data-icon="download">导出记录</button>
+            <button id="clearHistoryBtn" class="ghost-btn danger-ghost-btn" type="button" data-icon="trash">清空记录</button>
           </div>
         </header>
         <div class="history-toolbar">
@@ -138,10 +138,10 @@
         <header class="panel-header">
           <h2>诊断报告</h2>
           <div class="panel-actions">
-            <button id="openDoubaoPageBtn" class="ghost-btn" type="button">打开豆包</button>
-            <button id="runHealthCheckBtn" class="ghost-btn" type="button">运行健康检查</button>
-            <button id="exportHealthReportBtn" class="ghost-btn" type="button">导出健康报告</button>
-            <button id="exportDiagnosticsBtn" class="ghost-btn" type="button">导出诊断</button>
+            <button id="openDoubaoPageBtn" class="ghost-btn" type="button" data-icon="external">打开豆包</button>
+            <button id="runHealthCheckBtn" class="ghost-btn" type="button" data-icon="health">运行健康检查</button>
+            <button id="exportHealthReportBtn" class="ghost-btn" type="button" data-icon="report">导出健康报告</button>
+            <button id="exportDiagnosticsBtn" class="ghost-btn" type="button" data-icon="docs">导出诊断</button>
           </div>
         </header>
         <p class="diagnostics-copy">从当前打开的豆包页面读取工具状态、会话识别结果、API 缓存状态和最近日志，用于排查页面兼容问题。</p>

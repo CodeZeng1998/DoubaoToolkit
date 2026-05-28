@@ -3,8 +3,8 @@
   --o-bg-soft: #eef3ee;
   --o-card: #ffffff;
   --o-card-rail: #f5f8f6;
-  --o-text: #1a2420;
-  --o-muted: #5e716b;
+  --o-text: #18201f;
+  --o-muted: #60706d;
   --o-border: #dce5e0;
   --o-primary: #0d9488;
   --o-primary-strong: #0f766e;
@@ -45,11 +45,13 @@
 body {
   margin: 0;
   min-width: 760px;
-  background: var(--o-bg);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--o-primary) 7%, transparent) 0, transparent 38%),
+    linear-gradient(180deg, var(--o-bg) 0%, var(--o-bg-soft) 100%);
   color: var(--o-text);
-  font-family: -apple-system, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-family: "Aptos", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .options-shell {
@@ -64,15 +66,29 @@ body {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 20px;
+  position: relative;
+  padding-left: 12px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--o-border);
 }
 
+.page-header::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 16px;
+  width: 4px;
+  border-radius: 999px;
+  background: var(--o-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--o-primary) 12%, transparent);
+}
+
 .page-header h1 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0;
   color: var(--o-text);
 }
 
@@ -116,7 +132,18 @@ body {
   border-radius: 10px;
   background: var(--o-card);
   box-shadow: var(--o-shadow-sm);
+  position: relative;
+  overflow: hidden;
   transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.overview-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--o-primary), color-mix(in srgb, var(--o-warning) 70%, var(--o-primary)));
+  pointer-events: none;
 }
 
 .overview-card:hover {
@@ -136,7 +163,7 @@ body {
 .overview-card strong {
   color: var(--o-text);
   font-size: 22px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
@@ -153,6 +180,17 @@ body {
   border-radius: 10px;
   padding: 16px;
   box-shadow: var(--o-shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--o-primary), color-mix(in srgb, var(--o-warning) 70%, var(--o-primary)));
+  pointer-events: none;
 }
 
 .panel-header {
@@ -167,8 +205,20 @@ body {
 .panel-header h2 {
   margin: 0;
   font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-weight: 700;
+  letter-spacing: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.panel-header h2::before {
+  content: "";
+  width: 6px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--o-primary);
 }
 
 .panel-actions {
@@ -246,9 +296,33 @@ body {
   color: var(--o-text);
   cursor: pointer;
   font-size: 11px;
-  font-weight: 500;
-  transition: all 0.15s ease;
+  font-weight: 600;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
 }
+
+.ghost-btn[data-icon]::before {
+  content: "";
+  width: 13px;
+  height: 13px;
+  flex: none;
+  background: currentColor;
+  -webkit-mask: var(--btn-icon) center / contain no-repeat;
+  mask: var(--btn-icon) center / contain no-repeat;
+}
+
+.ghost-btn[data-icon="download"] { --btn-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M11%203h2v9.2l3.3-3.3%201.4%201.4L12%2016l-5.7-5.7%201.4-1.4%203.3%203.3V3ZM4%2019h16v2H4v-2Z%22%2F%3E%3C%2Fsvg%3E"); }
+.ghost-btn[data-icon="upload"] { --btn-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M11%2021h2v-9.2l3.3%203.3%201.4-1.4L12%208l-5.7%205.7%201.4%201.4%203.3-3.3V21ZM4%203h16v2H4V3Z%22%2F%3E%3C%2Fsvg%3E"); }
+.ghost-btn[data-icon="refresh"] { --btn-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M17.7%206.3A8%208%200%201%200%2020%2012h-2a6%206%200%201%201-1.8-4.3L14%2010h7V3l-3.3%203.3Z%22%2F%3E%3C%2Fsvg%3E"); }
+.ghost-btn[data-icon="trash"] { --btn-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M8%203h8l1%202h4v2H3V5h4l1-2Zm1%206h2v9H9V9Zm4%200h2v9h-2V9Z%22%2F%3E%3C%2Fsvg%3E"); }
+.ghost-btn[data-icon="external"] { --btn-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M14%205h5v5h-2V8.4l-5.8%205.8-1.4-1.4L15.6%207H14V5ZM5%205h6v2H7v10h10v-4h2v6H5V5Z%22%2F%3E%3C%2Fsvg%3E"); }
+.ghost-btn[data-icon="health"] { --btn-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M12%203%205%205.8V11c0%204.5%203%207.9%207%2010%204-2.1%207-5.5%207-10V5.8L12%203Zm-1%2012-3.2-3.2%201.4-1.4L11%2012.2l4.8-4.8%201.4%201.4L11%2015Z%22%2F%3E%3C%2Fsvg%3E"); }
+.ghost-btn[data-icon="report"],
+.ghost-btn[data-icon="docs"] { --btn-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M7%203h8l4%204v14H7V3Zm8%201.4V7h2.6L15%204.4ZM9%2010h6v2H9v-2Zm0%204h6v2H9v-2Zm0-8h3v2H9V6Z%22%2F%3E%3C%2Fsvg%3E"); }
 
 .ghost-btn:focus-visible,
 .setting-row input:focus-visible,
@@ -262,6 +336,7 @@ body {
   border-color: var(--o-primary);
   color: var(--o-primary);
   background: var(--o-primary-soft);
+  transform: translateY(-1px);
 }
 
 .ghost-btn:active {

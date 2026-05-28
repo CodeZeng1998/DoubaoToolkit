@@ -84,7 +84,7 @@
           <header class="dtk-floating-header">
             <strong>豆包工具箱</strong>
             <div class="dtk-floating-header-actions">
-              <button type="button" data-action="collapse" class="dtk-icon-btn" title="折叠面板" aria-label="折叠面板">×</button>
+              <button type="button" data-action="collapse" class="dtk-icon-btn" title="折叠面板" aria-label="折叠面板" data-icon="collapse"></button>
             </div>
           </header>
           <div class="dtk-floating-metrics" aria-live="polite">
@@ -114,16 +114,16 @@
             <div class="dtk-action-group">
               <div class="dtk-action-group-title">选择</div>
               <div class="dtk-action-grid">
-                <button type="button" data-action="toggle-mode" class="dtk-mini-btn dtk-mini-btn-primary" title="Ctrl+M">开启多选</button>
-                <button type="button" data-action="select-all" class="dtk-mini-btn dtk-mini-btn-ghost" title="Ctrl+A">全选</button>
-                <button type="button" data-action="clear" class="dtk-mini-btn dtk-mini-btn-ghost">清空选择</button>
+                <button type="button" data-action="toggle-mode" class="dtk-mini-btn dtk-mini-btn-primary" title="Ctrl+M" data-icon="multi">开启多选</button>
+                <button type="button" data-action="select-all" class="dtk-mini-btn dtk-mini-btn-ghost" title="Ctrl+A" data-icon="check">全选</button>
+                <button type="button" data-action="clear" class="dtk-mini-btn dtk-mini-btn-ghost" data-icon="clear">清空选择</button>
               </div>
             </div>
             <div class="dtk-action-group">
               <div class="dtk-action-group-title">删除</div>
               <div class="dtk-action-grid">
-                <button type="button" data-action="delete-selected" class="dtk-mini-btn dtk-mini-btn-danger" title="Ctrl+D">删除已选</button>
-                <button type="button" data-action="delete-all" class="dtk-mini-btn dtk-mini-btn-danger-high" title="Ctrl+Shift+D">全部删除</button>
+                <button type="button" data-action="delete-selected" class="dtk-mini-btn dtk-mini-btn-danger" title="Ctrl+D" data-icon="trash">删除已选</button>
+                <button type="button" data-action="delete-all" class="dtk-mini-btn dtk-mini-btn-danger-high" title="Ctrl+Shift+D" data-icon="warning">全部删除</button>
               </div>
               <span class="dtk-delete-all-risk">高风险：首次使用需启用</span>
             </div>
