@@ -27,8 +27,25 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+function setText(id, value) {
+  const node = $(id);
+  if (node) {
+    node.textContent = value ?? "";
+  }
+}
+
+function setDisabled(id, disabled) {
+  const node = $(id);
+  if (node) {
+    node.disabled = Boolean(disabled);
+  }
+}
+
 function setMessage(text, isError = false) {
   const node = $("message");
+  if (!node) {
+    return;
+  }
   node.textContent = text || "";
   node.style.color = isError ? "#e24c4c" : "";
 }
@@ -51,22 +68,28 @@ function applyState(snapshot) {
     ...snapshot
   };
   const stats = state.snapshot.deleteStats || {};
-  $("totalSessions").textContent = String(state.snapshot.totalSessions ?? 0);
-  $("selectedSessions").textContent = String(state.snapshot.selectedCount ?? 0);
-  $("deletableSessions").textContent = String(stats.deletable ?? state.snapshot.totalSessions ?? 0);
-  $("selectedDeletableSessions").textContent = String(stats.selectedDeletable ?? state.snapshot.selectedCount ?? 0);
-  $("missingIdSessions").textContent = String(stats.missingConversationId ?? 0);
-  $("missingElementSessions").textContent = String(stats.missingElement ?? 0);
-  $("modeLabel").textContent = state.snapshot.multiSelectMode ? "开启" : "关闭";
-  $("toggleModeBtn").textContent = state.snapshot.multiSelectMode ? "关闭多选" : "开启多选";
+  setText("totalSessions", String(state.snapshot.totalSessions ?? 0));
+  setText("selectedSessions", String(state.snapshot.selectedCount ?? 0));
+  setText("deletableSessions", String(stats.deletable ?? state.snapshot.totalSessions ?? 0));
+  setText("selectedDeletableSessions", String(stats.selectedDeletable ?? state.snapshot.selectedCount ?? 0));
+  setText("missingIdSessions", String(stats.missingConversationId ?? 0));
+  setText("missingElementSessions", String(stats.missingElement ?? 0));
+  setText("modeLabel", state.snapshot.multiSelectMode ? "开启" : "关闭");
+  setText("toggleModeBtn", state.snapshot.multiSelectMode ? "关闭多选" : "开启多选");
   const allSelected =
     (state.snapshot.totalSessions || 0) > 0 && (state.snapshot.selectedCount || 0) >= (state.snapshot.totalSessions || 0);
-  $("selectAllBtn").textContent = allSelected ? "取消全选" : "全选";
-  $("selectAllBtn").setAttribute("aria-pressed", String(allSelected));
-  $("deleteAllRisk").textContent = state.snapshot.deleteAllUnlocked ? "高风险：删除前仍需确认" : "高风险：首次使用需启用";
-  $("incognitoToggle").checked = Boolean(state.snapshot.incognitoModeEnabled);
-  $("incognitoInterval").value = String(state.snapshot.incognitoIntervalMinutes || 10);
-  $("incognitoStatus").textContent = formatIncognitoStatus();
+  setText("selectAllBtn", allSelected ? "取消全选" : "全选");
+  $("selectAllBtn")?.setAttribute("aria-pressed", String(allSelected));
+  setText("deleteAllRisk", state.snapshot.deleteAllUnlocked ? "高风险：删除前仍需确认" : "高风险：首次使用需启用");
+  const incognitoToggle = $("incognitoToggle");
+  if (incognitoToggle) {
+    incognitoToggle.checked = Boolean(state.snapshot.incognitoModeEnabled);
+  }
+  const incognitoInterval = $("incognitoInterval");
+  if (incognitoInterval) {
+    incognitoInterval.value = String(state.snapshot.incognitoIntervalMinutes || 10);
+  }
+  setText("incognitoStatus", formatIncognitoStatus());
 
   if (state.snapshot.incognitoModeEnabled && state.snapshot.incognitoNextRunAt) {
     startCountdownTimer();
@@ -78,11 +101,11 @@ function applyState(snapshot) {
   for (const button of document.querySelectorAll(".btn")) {
     button.disabled = disabled;
   }
-  $("deleteSelectedBtn").disabled = disabled || (state.snapshot.selectedCount || 0) === 0;
-  $("cancelDeleteBtn").disabled = !state.contentReady || !state.snapshot.isDeleting;
-  $("incognitoToggle").disabled = disabled;
-  $("incognitoInterval").disabled = disabled;
-  $("retryFailedBtn").disabled = disabled || !state.snapshot.hasFailedRetryTargets;
+  setDisabled("deleteSelectedBtn", disabled || (state.snapshot.selectedCount || 0) === 0);
+  setDisabled("cancelDeleteBtn", !state.contentReady || !state.snapshot.isDeleting);
+  setDisabled("incognitoToggle", disabled);
+  setDisabled("incognitoInterval", disabled);
+  setDisabled("retryFailedBtn", disabled || !state.snapshot.hasFailedRetryTargets);
 }
 
 function formatIncognitoStatus() {
@@ -109,6 +132,9 @@ function stopCountdownTimer() {
     state.countdownTimer = null;
   }
   const el = $("incognitoCountdown");
+  if (!el) {
+    return;
+  }
   el.hidden = true;
   el.textContent = "";
   el.classList.remove("countdown-urgent");
@@ -116,6 +142,9 @@ function stopCountdownTimer() {
 
 function updateCountdown() {
   const el = $("incognitoCountdown");
+  if (!el) {
+    return;
+  }
   if (!state.snapshot.incognitoModeEnabled) {
     el.hidden = true;
     el.textContent = "";
@@ -198,7 +227,17 @@ function renderLatestTask() {
 }
 
 function bindActions() {
-  $("toggleModeBtn").addEventListener("click", async () => {
+  const bind = (id, eventName, handler) => {
+    const node = $(id);
+    if (!node) {
+      console.warn(`[Doubao Toolkit] Popup control missing: ${id}`);
+      return null;
+    }
+    node.addEventListener(eventName, handler);
+    return node;
+  };
+
+  bind("toggleModeBtn", "click", async () => {
     try {
       const enabled = !state.snapshot.multiSelectMode;
       const response = await sendToContent("DTK_TOGGLE_MULTI_SELECT", { enabled });
@@ -210,7 +249,7 @@ function bindActions() {
     }
   });
 
-  $("selectAllBtn").addEventListener("click", async () => {
+  bind("selectAllBtn", "click", async () => {
     try {
       const allSelected =
         (state.snapshot.totalSessions || 0) > 0 && (state.snapshot.selectedCount || 0) >= (state.snapshot.totalSessions || 0);
@@ -223,7 +262,7 @@ function bindActions() {
     }
   });
 
-  $("clearSelectionBtn").addEventListener("click", async () => {
+  bind("clearSelectionBtn", "click", async () => {
     try {
       const response = await sendToContent("DTK_CLEAR_SELECTION");
       if (response?.ok) {
@@ -234,7 +273,7 @@ function bindActions() {
     }
   });
 
-  $("deleteSelectedBtn").addEventListener("click", async () => {
+  bind("deleteSelectedBtn", "click", async () => {
     setMessage("正在删除已选对话...");
     try {
       const response = await sendToContent("DTK_DELETE_SELECTED");
@@ -251,7 +290,7 @@ function bindActions() {
     }
   });
 
-  $("deleteAllBtn").addEventListener("click", async () => {
+  bind("deleteAllBtn", "click", async () => {
     setMessage("正在处理全部删除...");
     try {
       const response = await sendToContent("DTK_DELETE_ALL");
@@ -272,7 +311,7 @@ function bindActions() {
     }
   });
 
-  $("cancelDeleteBtn").addEventListener("click", async () => {
+  bind("cancelDeleteBtn", "click", async () => {
     setMessage("正在请求取消删除...");
     try {
       const response = await sendToContent("DTK_CANCEL_DELETE");
@@ -290,7 +329,7 @@ function bindActions() {
     }
   });
 
-  $("incognitoToggle").addEventListener("change", async () => {
+  bind("incognitoToggle", "change", async () => {
     try {
       const response = await sendToContent("DTK_SET_INCOGNITO_MODE", { enabled: $("incognitoToggle").checked });
       if (response?.ok) {
@@ -307,7 +346,7 @@ function bindActions() {
     }
   });
 
-  $("incognitoInterval").addEventListener("change", async () => {
+  bind("incognitoInterval", "change", async () => {
     try {
       const minutes = Number($("incognitoInterval").value);
       const response = await sendToContent("DTK_SET_INCOGNITO_INTERVAL", { minutes });
@@ -321,7 +360,7 @@ function bindActions() {
     }
   });
 
-  $("retryFailedBtn").addEventListener("click", async () => {
+  bind("retryFailedBtn", "click", async () => {
     setMessage("正在重试失败项...");
     try {
       const response = await sendToContent("DTK_RETRY_FAILED_DELETES");
@@ -337,7 +376,7 @@ function bindActions() {
     }
   });
 
-  $("openOptionsBtn").addEventListener("click", () => {
+  bind("openOptionsBtn", "click", () => {
     chrome.runtime.openOptionsPage();
   });
 }

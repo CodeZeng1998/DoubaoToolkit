@@ -4,18 +4,18 @@ const ALARM_NAME = "dtk_incognito_cleanup";
 const DOUBAO_URL_PATTERNS = ["*://*.doubao.com/*", "*://doubao.com/*"];
 
 chrome.runtime.onInstalled.addListener(() => {
-  syncIncognitoAlarm();
+  runBackgroundTask("sync incognito alarm on install", syncIncognitoAlarm);
   console.log("[Doubao Toolkit] Service worker installed.");
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  syncIncognitoAlarm();
-  updateActionBadge();
+  runBackgroundTask("sync incognito alarm on startup", syncIncognitoAlarm);
+  runBackgroundTask("update badge on startup", updateActionBadge);
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM_NAME) {
-    runIncognitoCleanup();
+    runBackgroundTask("run incognito cleanup", runIncognitoCleanup);
   }
 });
 
@@ -24,7 +24,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     areaName === "local" &&
     (changes[DoubaoToolkitStorage.SETTINGS_KEY] || changes[DoubaoToolkitStorage.TASK_HISTORY_KEY])
   ) {
-    updateActionBadge();
+    runBackgroundTask("update badge after storage change", updateActionBadge);
   }
 });
 
@@ -75,6 +75,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return false;
 });
+
+function runBackgroundTask(label, task) {
+  try {
+    const result = task?.();
+    if (result?.catch) {
+      result.catch((error) => {
+        console.warn(`[Doubao Toolkit] ${label} failed.`, error);
+      });
+    }
+    return result;
+  } catch (error) {
+    console.warn(`[Doubao Toolkit] ${label} failed.`, error);
+    return null;
+  }
+}
 
 async function syncIncognitoAlarm() {
   const settings = await DoubaoToolkitStorage.getSettings();
