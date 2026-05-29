@@ -79,10 +79,40 @@
       root.className = "dtk-floating-root";
       root.innerHTML = `
         <button type="button" class="dtk-floating-toggle" aria-label="豆包工具箱，拖动移动，悬停或点击展开">
-          <svg class="dtk-floating-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3 6h10M3 10h10M3 14h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            <path d="M16 8c0-1.1.9-2 2-2h1c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2h-1c-1.1 0-2-.9-2-2V8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-            <circle cx="18.5" cy="12" r="0.8" fill="currentColor"/>
+          <svg class="dtk-floating-icon" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="dtk-hair-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#5C3A2C"/>
+                <stop offset="1" stop-color="#3A2218"/>
+              </linearGradient>
+              <radialGradient id="dtk-cheek-grad" cx="0.5" cy="0.5" r="0.5">
+                <stop offset="0" stop-color="#FF8A96" stop-opacity="0.85"/>
+                <stop offset="1" stop-color="#FF8A96" stop-opacity="0"/>
+              </radialGradient>
+              <radialGradient id="dtk-face-shade" cx="0.5" cy="0.5" r="0.6">
+                <stop offset="0.6" stop-color="#FFE2C4" stop-opacity="0"/>
+                <stop offset="1" stop-color="#E8B98F" stop-opacity="0.55"/>
+              </radialGradient>
+            </defs>
+            <circle cx="36" cy="34" r="14" fill="url(#dtk-hair-grad)"/>
+            <circle cx="92" cy="34" r="14" fill="url(#dtk-hair-grad)"/>
+            <circle cx="36" cy="22" r="5" fill="#FFA8C4"/>
+            <circle cx="92" cy="22" r="5" fill="#FFA8C4"/>
+            <ellipse cx="64" cy="74" rx="42" ry="38" fill="#FFE2C4"/>
+            <ellipse cx="64" cy="74" rx="42" ry="38" fill="url(#dtk-face-shade)"/>
+            <ellipse cx="22" cy="74" rx="6" ry="9" fill="#FFD4B0"/>
+            <ellipse cx="106" cy="74" rx="6" ry="9" fill="#FFD4B0"/>
+            <path d="M22 60 Q24 38 64 36 Q104 38 106 60 Q96 50 84 52 Q74 44 64 44 Q54 44 44 52 Q32 50 22 60 Z" fill="url(#dtk-hair-grad)"/>
+            <path d="M22 60 Q18 80 26 96 Q22 80 28 64 Z" fill="url(#dtk-hair-grad)"/>
+            <path d="M106 60 Q110 80 102 96 Q106 80 100 64 Z" fill="url(#dtk-hair-grad)"/>
+            <ellipse cx="40" cy="84" rx="10" ry="6" fill="url(#dtk-cheek-grad)"/>
+            <ellipse cx="88" cy="84" rx="10" ry="6" fill="url(#dtk-cheek-grad)"/>
+            <ellipse cx="48" cy="74" rx="5.2" ry="7.4" fill="#2A1A12"/>
+            <ellipse cx="80" cy="74" rx="5.2" ry="7.4" fill="#2A1A12"/>
+            <circle cx="50" cy="71" r="2" fill="#ffffff"/>
+            <circle cx="82" cy="71" r="2" fill="#ffffff"/>
+            <path d="M58 92 Q64 98 70 92" stroke="#C84848" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+            <circle cx="64" cy="95.5" r="1.2" fill="#FF8A96"/>
           </svg>
           <span class="dtk-floating-count" aria-live="polite">0</span>
         </button>
@@ -683,13 +713,10 @@
       this.root.classList.toggle("selecting", Boolean(state.multiSelectMode) && !state.isDeleting);
       this.root.classList.toggle("deleting", Boolean(state.isDeleting));
       if (state.isDeleting) {
-        this.iconNode.innerHTML = `<path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`;
         this.countNode.textContent = "";
       } else if (state.multiSelectMode) {
-        this.iconNode.innerHTML = `<rect x="3" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M5 7l2 2 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="13" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/><rect x="3" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/><rect x="13" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/>`;
         this.countNode.textContent = String(state.selectedCount || 0);
       } else {
-        this.iconNode.innerHTML = `<path d="M3 6h10M3 10h10M3 14h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 8c0-1.1.9-2 2-2h1c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2h-1c-1.1 0-2-.9-2-2V8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.5" cy="12" r="0.8" fill="currentColor"/>`;
         this.countNode.textContent = "";
       }
 

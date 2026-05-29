@@ -705,9 +705,9 @@
 .dtk-floating-toggle {
   width: 52px;
   height: 52px;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--dtk-primary) 40%, var(--dtk-border));
-  background: linear-gradient(135deg, var(--dtk-primary), var(--dtk-primary-strong));
+  border-radius: 12px;
+  border: none;
+  background: transparent;
   color: #fff;
   box-shadow: var(--dtk-shadow);
   cursor: pointer;
@@ -717,6 +717,7 @@
   touch-action: none;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   padding: 0;
+  overflow: visible;
 }
 
 .dtk-floating-toggle:hover {
@@ -725,9 +726,10 @@
 }
 
 .dtk-floating-icon {
-  width: 24px;
-  height: 24px;
-  color: #fff;
+  width: 52px;
+  height: 52px;
+  display: block;
+  border-radius: 12px;
   transition: transform 0.2s ease;
 }
 
@@ -740,7 +742,7 @@
   content: "";
   position: absolute;
   inset: -4px;
-  border-radius: 999px;
+  border-radius: 16px;
   border: 2px solid rgba(255, 255, 255, 0.55);
   border-top-color: var(--dtk-danger);
   animation: dtk-spin 0.75s linear infinite;
@@ -1362,6 +1364,11 @@
   }
 
   .dtk-floating-toggle {
+    width: 58px;
+    height: 58px;
+  }
+
+  .dtk-floating-icon {
     width: 58px;
     height: 58px;
   }
