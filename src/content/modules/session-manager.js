@@ -912,14 +912,38 @@
     }
 
     async confirmDelete(mode, targets) {
-      const label = mode === "all" ? "确定删除全部对话？" : `确定删除已选的 ${targets.length} 个对话？`;
+      if (mode === "all") {
+        const productName = String(config?.appName || "豆包").replace(/工具箱$/, "") || "豆包";
+        const previewLimit = 5;
+        const previewItems = targets.slice(0, previewLimit).map((target, index) => this.formatPreviewTitle(target, index));
+        if (targets.length > previewLimit) {
+          previewItems.push(`等 ${targets.length} 个对话`);
+        }
+        return modal.confirm({
+          title: "危险操作",
+          messageLines: [`全部检测到的 ${productName} 对话将被删除。`],
+          messageItems: previewItems,
+          confirmText: "删除",
+          cancelText: "取消",
+          danger: true,
+          requiredText: "删除全部",
+          requiredTextLabel: "🔐 请输入 “删除全部” 以确认删除",
+          inputPlaceholder: "输入 删除全部",
+          fillMode: "button",
+          fillButtonText: "一键填入“删除全部”",
+          showInputHint: false,
+          size: "large"
+        });
+      }
+
+      const label = `确定删除已选的 ${targets.length} 个对话？`;
       return modal.confirm({
         title: "危险操作",
         message: `${label} ${this.buildDeletePreviewMessage(mode, targets)}`,
         confirmText: "删除",
         cancelText: "取消",
         danger: true,
-        requiredText: mode === "all" ? "删除全部" : ""
+        requiredText: ""
       });
     }
 
