@@ -293,6 +293,12 @@
   overflow: hidden;
 }
 
+.dtk-modal-large {
+  width: min(620px, calc(100vw - 40px));
+  padding: 28px 30px 24px;
+  border-color: color-mix(in srgb, var(--dtk-primary) 44%, var(--dtk-border));
+}
+
 .dtk-modal::before,
 .dtk-progress-panel::before,
 .dtk-floating-panel::before {
@@ -321,12 +327,56 @@
   color: var(--dtk-danger);
 }
 
+.dtk-modal-large.dtk-modal-danger .dtk-modal-title {
+  color: var(--dtk-primary);
+}
+
+.dtk-modal-message p {
+  margin: 0;
+}
+
+.dtk-modal-message p + p {
+  margin-top: 10px;
+}
+
+.dtk-modal-message-list {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.dtk-modal-message-list li::before {
+  content: "- ";
+}
+
 .dtk-modal-input-row {
   display: grid;
   gap: 6px;
   margin-top: 12px;
   color: var(--dtk-text-muted);
   font-size: 12px;
+}
+
+.dtk-modal-large .dtk-modal-title {
+  font-size: 22px;
+  margin-bottom: 22px;
+}
+
+.dtk-modal-large .dtk-modal-message {
+  font-size: 15px;
+}
+
+.dtk-modal-large .dtk-modal-input-row {
+  gap: 10px;
+  margin-top: 26px;
+  font-size: 15px;
+}
+
+.dtk-modal-large .dtk-modal-input-label {
+  color: var(--dtk-primary);
+  font-weight: 700;
 }
 
 .dtk-modal-input-row[hidden] {
@@ -345,6 +395,13 @@
     border-color 0.15s ease,
     box-shadow 0.15s ease,
     background 0.15s ease;
+}
+
+.dtk-modal-large .dtk-modal-input-row input {
+  border-width: 2px;
+  border-color: var(--dtk-primary);
+  padding: 12px 16px;
+  font-size: 16px;
 }
 
 .dtk-modal-input-row input:focus {
@@ -384,6 +441,18 @@
   gap: 10px;
 }
 
+.dtk-modal-large .dtk-modal-actions {
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.dtk-modal-large .dtk-btn {
+  min-width: 90px;
+  padding: 12px 20px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
 .dtk-modal-fill-token {
   border: 1px solid color-mix(in srgb, var(--dtk-danger) 45%, var(--dtk-border));
   border-radius: 6px;
@@ -398,6 +467,26 @@
 
 .dtk-modal-fill-token:hover {
   background: color-mix(in srgb, var(--dtk-danger) 13%, transparent);
+}
+
+.dtk-modal-fill-button {
+  justify-self: start;
+  border: 1px solid color-mix(in srgb, var(--dtk-primary) 46%, var(--dtk-border));
+  border-radius: 8px;
+  padding: 9px 14px;
+  background: color-mix(in srgb, var(--dtk-primary) 9%, transparent);
+  color: var(--dtk-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dtk-modal-fill-button:hover {
+  background: color-mix(in srgb, var(--dtk-primary) 15%, transparent);
+}
+
+.dtk-modal-fill-button[hidden] {
+  display: none;
 }
 
 .dtk-btn {
@@ -452,6 +541,11 @@
 
 .dtk-btn:hover:not(:disabled) {
   transform: translateY(-1px);
+}
+
+.dtk-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .dtk-progress-overlay {
