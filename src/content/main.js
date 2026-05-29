@@ -41,7 +41,18 @@
     }
 
     let noticeShown = false;
+    let noticeResolved = false;
     let fallbackTimer = null;
+    const notifyNoticeOpened = () => {
+      window.dispatchEvent(new CustomEvent("dtk:incognito-notice-opened"));
+    };
+    const notifyNoticeClosed = () => {
+      if (noticeResolved) {
+        return;
+      }
+      noticeResolved = true;
+      window.dispatchEvent(new CustomEvent("dtk:incognito-notice-closed"));
+    };
 
     const cleanup = () => {
       window.removeEventListener("dtk:state-changed", handleStateChanged);
@@ -51,8 +62,15 @@
       }
     };
 
-    const showNotice = (state) => {
-      if (noticeShown || !state?.incognitoModeEnabled) {
+    const showNotice = (state, finalCheck = false) => {
+      if (noticeShown || noticeResolved) {
+        return;
+      }
+      if (!state?.incognitoModeEnabled) {
+        if (finalCheck) {
+          cleanup();
+          notifyNoticeClosed();
+        }
         return;
       }
       noticeShown = true;
@@ -63,18 +81,23 @@
       try {
         if (!modal?.confirm) {
           toast?.show?.("无痕模式已开启，工具会按设定间隔自动清理历史对话。", "warning", 5200);
+          notifyNoticeClosed();
           return;
         }
 
-        void modal.confirm({
-          title: "无痕模式已开启",
-          message,
-          confirmText: "我知道了",
-          cancelText: "关闭提醒"
-        });
+        notifyNoticeOpened();
+        void Promise.resolve(
+          modal.confirm({
+            title: "无痕模式已开启",
+            message,
+            confirmText: "我知道了",
+            cancelText: "关闭提醒"
+          })
+        ).finally(notifyNoticeClosed);
       } catch (error) {
         logger?.warn?.("Show incognito notice failed:", error);
         toast?.show?.("无痕模式已开启，工具会按设定间隔自动清理历史对话。", "warning", 5200);
+        notifyNoticeClosed();
       }
     };
 
@@ -83,7 +106,7 @@
     }
 
     window.addEventListener("dtk:state-changed", handleStateChanged);
-    fallbackTimer = window.setTimeout(() => showNotice(sessionManager?.getState?.()), 1200);
+    fallbackTimer = window.setTimeout(() => showNotice(sessionManager?.getState?.(), true), 1200);
   }
 
   function safeRun(label, task) {

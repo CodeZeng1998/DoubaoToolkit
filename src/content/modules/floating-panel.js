@@ -10,7 +10,8 @@
   const OPACITY_KEY = "dtk_floating_opacity_v1";
   const THEME_COLOR_KEY = "dtk_theme_color_v1";
   const HIGH_CONTRAST_KEY = "dtk_high_contrast_v1";
-  const ONBOARDING_KEY = "dtk_onboarding_seen_v1";
+  const INCOGNITO_NOTICE_OPENED_EVENT = "dtk:incognito-notice-opened";
+  const INCOGNITO_NOTICE_CLOSED_EVENT = "dtk:incognito-notice-closed";
   const DRAG_THRESHOLD = 4;
   const MIN_PANEL_WIDTH = 240;
   const MIN_PANEL_HEIGHT = 260;
@@ -51,6 +52,11 @@
       this.resizeState = null;
       this.lastState = null;
       this.hoverCloseTimer = null;
+      this.onboardingShown = false;
+      this.onboardingTimer = null;
+      this.onboardingNoticeOpenHandler = null;
+      this.onboardingNoticeCloseHandler = null;
+      this.onboardingPausedForNotice = false;
     }
 
     init() {
@@ -146,7 +152,11 @@
           </div>
           <div class="dtk-panel-resize" role="separator" aria-label="拖拽调整面板大小"></div>
         </section>
-        <div class="dtk-onboarding-tip" role="status">拖动按钮移动面板，Ctrl+D 删除已选对话。</div>
+        <div class="dtk-onboarding-tip" role="status">
+          <span class="dtk-onboarding-tip-icon" aria-hidden="true"></span>
+          <span>拖动图标可移动位置</span>
+          <span class="dtk-onboarding-tip-arrow" aria-hidden="true"></span>
+        </div>
       `;
       document.body.appendChild(root);
       this.root = root;
@@ -586,12 +596,63 @@
     }
 
     showOnboardingIfNeeded() {
-      if (this.readString(ONBOARDING_KEY, "false") === "true") {
+      if (this.onboardingShown || !this.root) {
         return;
       }
+      this.onboardingShown = true;
       this.root.classList.add("show-onboarding");
-      this.writeString(ONBOARDING_KEY, "true");
-      window.setTimeout(() => this.root?.classList.remove("show-onboarding"), 5200);
+      this.onboardingNoticeOpenHandler = () => this.pauseOnboardingForNotice();
+      this.onboardingNoticeCloseHandler = () => this.resumeOnboardingAfterNotice();
+      window.addEventListener(INCOGNITO_NOTICE_OPENED_EVENT, this.onboardingNoticeOpenHandler, { once: true });
+      window.addEventListener(INCOGNITO_NOTICE_CLOSED_EVENT, this.onboardingNoticeCloseHandler, { once: true });
+      this.startOnboardingTimer();
+    }
+
+    startOnboardingTimer() {
+      if (!this.root) {
+        return;
+      }
+      if (this.onboardingTimer) {
+        window.clearTimeout(this.onboardingTimer);
+      }
+      this.root.classList.add("count-onboarding");
+      this.onboardingTimer = window.setTimeout(() => {
+        this.onboardingTimer = null;
+        this.root?.classList.remove("show-onboarding", "count-onboarding");
+        this.cleanupOnboardingNoticeListeners();
+      }, 5200);
+    }
+
+    pauseOnboardingForNotice() {
+      if (!this.root?.classList.contains("show-onboarding")) {
+        return;
+      }
+      this.onboardingPausedForNotice = true;
+      if (this.onboardingTimer) {
+        window.clearTimeout(this.onboardingTimer);
+        this.onboardingTimer = null;
+      }
+      this.root.classList.remove("count-onboarding");
+    }
+
+    resumeOnboardingAfterNotice() {
+      if (this.onboardingPausedForNotice) {
+        this.onboardingPausedForNotice = false;
+        this.startOnboardingTimer();
+        return;
+      }
+      this.cleanupOnboardingNoticeListeners();
+    }
+
+    cleanupOnboardingNoticeListeners() {
+      if (this.onboardingNoticeOpenHandler) {
+        window.removeEventListener(INCOGNITO_NOTICE_OPENED_EVENT, this.onboardingNoticeOpenHandler);
+        this.onboardingNoticeOpenHandler = null;
+      }
+      if (this.onboardingNoticeCloseHandler) {
+        window.removeEventListener(INCOGNITO_NOTICE_CLOSED_EVENT, this.onboardingNoticeCloseHandler);
+        this.onboardingNoticeCloseHandler = null;
+      }
     }
 
     update(state) {
