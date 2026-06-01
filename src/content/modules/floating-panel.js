@@ -25,6 +25,8 @@
       this.iconNode = null;
       this.panel = null;
       this.countNode = null;
+      this.countdownRingNode = null;
+      this.countdownTextNode = null;
       this.modeBtn = null;
       this.selectAllBtn = null;
       this.clearBtn = null;
@@ -116,6 +118,11 @@
             <path d="M58 92 Q64 98 70 92" stroke="#C84848" stroke-width="2.4" stroke-linecap="round" fill="none"/>
             <circle cx="64" cy="95.5" r="1.2" fill="#FF8A96"/>
           </svg>
+          <svg class="dtk-floating-countdown-ring" viewBox="0 0 64 64" aria-hidden="true">
+            <circle class="dtk-floating-countdown-track" cx="32" cy="32" r="24"></circle>
+            <circle class="dtk-floating-countdown-progress" cx="32" cy="32" r="24"></circle>
+          </svg>
+          <span class="dtk-floating-countdown-text" aria-hidden="true"></span>
           <span class="dtk-floating-count" aria-live="polite">0</span>
         </button>
         <section class="dtk-floating-panel" role="dialog" aria-label="豆包工具箱控制面板">
@@ -201,6 +208,8 @@
       this.root = root;
       this.toggleBtn = root.querySelector(".dtk-floating-toggle");
       this.iconNode = root.querySelector(".dtk-floating-icon");
+      this.countdownRingNode = root.querySelector(".dtk-floating-countdown-ring");
+      this.countdownTextNode = root.querySelector(".dtk-floating-countdown-text");
       this.panel = root.querySelector(".dtk-floating-panel");
       this.countNode = root.querySelector(".dtk-floating-count");
       this.modeBtn = root.querySelector("[data-action='toggle-mode']");
@@ -719,6 +728,7 @@
       if (state.multiSelectMode) {
         this.clearHoverCloseTimer();
       }
+      this.updateFloatingCountdown(state);
       this.countNode.textContent = String(state.selectedCount || 0);
       this.totalNode.textContent = String(state.totalSessions || 0);
       this.selectedNode.textContent = String(state.selectedCount || 0);
@@ -775,6 +785,40 @@
       this.updatePanelPlacement();
     }
 
+    updateFloatingCountdown(state) {
+      const nextRunAt = Number(state?.incognitoNextRunAt || 0);
+      const enabled = Boolean(state?.incognitoModeEnabled && nextRunAt);
+      if (!this.countdownRingNode || !this.countdownTextNode) {
+        return;
+      }
+
+      this.root.classList.toggle("incognito-countdown-active", enabled);
+      if (!enabled) {
+        this.root.classList.remove("incognito-countdown-urgent");
+        this.countdownRingNode.style.removeProperty("--dtk-countdown-progress");
+        this.countdownRingNode.style.removeProperty("--dtk-countdown-dashoffset");
+        this.countdownTextNode.hidden = true;
+        this.countdownTextNode.textContent = "";
+        return;
+      }
+
+      const remainingSeconds = Math.max(0, Math.ceil((nextRunAt - Date.now()) / 1000));
+      if (remainingSeconds <= 10) {
+        const progress = Math.max(0, Math.min(1, remainingSeconds / 10));
+        this.root.classList.add("incognito-countdown-urgent");
+        this.countdownRingNode.style.setProperty("--dtk-countdown-progress", String(progress));
+        this.countdownRingNode.style.setProperty("--dtk-countdown-dashoffset", String(150.8 * (1 - progress)));
+        this.countdownTextNode.hidden = false;
+        this.countdownTextNode.textContent = `${remainingSeconds}s`;
+      } else {
+        this.root.classList.remove("incognito-countdown-urgent");
+        this.countdownRingNode.style.setProperty("--dtk-countdown-progress", "1");
+        this.countdownRingNode.style.setProperty("--dtk-countdown-dashoffset", "0");
+        this.countdownTextNode.hidden = true;
+        this.countdownTextNode.textContent = "";
+      }
+    }
+
     formatIncognitoStatus(state) {
       if (!state.incognitoModeEnabled) {
         return "无痕模式未开启";
@@ -815,6 +859,7 @@
         this.incognitoCountdownNode.textContent = "";
         this.incognitoCountdownNode.classList.remove("dtk-countdown-urgent");
       }
+      this.updateFloatingCountdown({ incognitoModeEnabled: false, incognitoNextRunAt: 0 });
     }
 
     updateCountdown() {
@@ -828,6 +873,7 @@
         return;
       }
       const remainingSeconds = Math.max(0, Math.ceil((nextRunAt - Date.now()) / 1000));
+      this.updateFloatingCountdown(this.lastState);
       if (remainingSeconds <= 60 && remainingSeconds > 0) {
         el.hidden = false;
         el.textContent = `${remainingSeconds}s`;

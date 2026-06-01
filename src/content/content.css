@@ -774,6 +774,28 @@
   overflow: visible;
 }
 
+.dtk-floating-toggle::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dtk-danger) 16%, transparent);
+  mask: radial-gradient(circle at center, transparent 55%, #000 57%);
+  opacity: 0;
+  transform: scale(0.94);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.dtk-floating-root.incognito-countdown-active .dtk-floating-toggle::before {
+  opacity: 1;
+}
+
+.dtk-floating-root.incognito-countdown-urgent .dtk-floating-toggle::before {
+  animation: dtk-countdown-pulse 0.72s ease-in-out infinite;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dtk-danger) 40%, transparent);
+}
+
 .dtk-floating-toggle:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 28px color-mix(in srgb, var(--dtk-primary) 26%, transparent);
@@ -785,6 +807,71 @@
   display: block;
   border-radius: 12px;
   transition: transform 0.2s ease;
+}
+
+.dtk-floating-countdown-ring {
+  position: absolute;
+  inset: -8px;
+  width: calc(100% + 16px);
+  height: calc(100% + 16px);
+  pointer-events: none;
+  opacity: 0;
+  transform: rotate(-90deg);
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--dtk-danger) 18%, transparent));
+}
+
+.dtk-floating-root.incognito-countdown-active .dtk-floating-countdown-ring {
+  opacity: 1;
+}
+
+.dtk-floating-countdown-track,
+.dtk-floating-countdown-progress {
+  fill: none;
+  stroke-width: 7;
+  vector-effect: non-scaling-stroke;
+}
+
+.dtk-floating-countdown-track {
+  stroke: color-mix(in srgb, var(--dtk-surface-raised) 84%, transparent);
+  opacity: 0.7;
+}
+
+.dtk-floating-countdown-progress {
+  stroke: var(--dtk-danger);
+  stroke-linecap: round;
+  stroke-dasharray: 150.8;
+  stroke-dashoffset: var(--dtk-countdown-dashoffset, 0);
+  transition: stroke-dashoffset 0.25s linear, stroke 0.2s ease;
+}
+
+.dtk-floating-countdown-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  color: #fff4db;
+  background: linear-gradient(180deg, #fff8ec 0%, #ffd98e 46%, #ffb04d 72%, #ff7f66 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow:
+    0 1px 2px rgba(31, 16, 12, 0.56),
+    0 0 10px color-mix(in srgb, var(--dtk-danger) 24%, transparent);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(1px);
+}
+
+.dtk-floating-root.incognito-countdown-urgent .dtk-floating-countdown-text {
+  opacity: 1;
+  background: linear-gradient(180deg, #fffdf7 0%, #ffe3b0 34%, #ffb86b 65%, #ff654f 100%);
+  text-shadow:
+    0 1px 2px rgba(22, 10, 10, 0.64),
+    0 0 14px color-mix(in srgb, var(--dtk-danger) 38%, transparent);
 }
 
 .dtk-floating-root.selecting .dtk-floating-icon,
@@ -800,6 +887,17 @@
   border: 2px solid rgba(255, 255, 255, 0.55);
   border-top-color: var(--dtk-danger);
   animation: dtk-spin 0.75s linear infinite;
+}
+
+@keyframes dtk-countdown-pulse {
+  0%, 100% {
+    transform: scale(0.94);
+    opacity: 0.82;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .dtk-floating-count {
