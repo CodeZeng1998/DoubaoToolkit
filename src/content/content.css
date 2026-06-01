@@ -104,6 +104,55 @@
   box-shadow: var(--dtk-shadow-tight);
 }
 
+.dtk-session-archive {
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--dtk-warning) 55%, var(--dtk-border));
+  background: var(--dtk-surface-raised);
+  border-radius: 6px;
+  cursor: pointer;
+  position: fixed;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  box-sizing: border-box;
+  box-shadow: var(--dtk-shadow-tight);
+}
+
+.dtk-session-archive::before {
+  content: "";
+  width: 12px;
+  height: 14px;
+  border: 2px solid var(--dtk-warning);
+  border-top-width: 4px;
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+
+.dtk-session-archive-on {
+  border-color: var(--dtk-warning);
+  background: color-mix(in srgb, var(--dtk-warning) 16%, var(--dtk-bg));
+}
+
+.dtk-session-archive-on::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  width: 8px;
+  height: 2px;
+  background: var(--dtk-warning);
+  border-radius: 999px;
+}
+
+.dtk-session-archive:disabled,
+.dtk-session-checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .dtk-multi-select-enabled .dtk-session-selectable {
   position: relative;
   box-sizing: border-box;
@@ -142,6 +191,11 @@
   opacity: 0;
   pointer-events: none;
   animation: dtk-selection-pulse 0.5s ease-out;
+}
+
+.dtk-multi-select-enabled .dtk-session-archived {
+  outline: 1px dashed color-mix(in srgb, var(--dtk-warning) 72%, transparent);
+  border-radius: 8px;
 }
 
 .dtk-toast-container {

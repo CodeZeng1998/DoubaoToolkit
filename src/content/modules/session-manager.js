@@ -15,6 +15,7 @@
   const DELETE_ALL_UNLOCK_KEY = "dtk_delete_all_unlocked_v1";
   const INCOGNITO_ENABLED_KEY = "dtk_incognito_enabled_v1";
   const INCOGNITO_INTERVAL_KEY = "dtk_incognito_interval_minutes_v1";
+  const ARCHIVED_IDS_KEY = "dtk_archived_conversation_ids_v1";
   const DEFAULT_INCOGNITO_INTERVAL_MINUTES = 10;
   const MIN_INCOGNITO_INTERVAL_MINUTES = 1;
   const MAX_INCOGNITO_INTERVAL_MINUTES = 1440;
@@ -59,13 +60,17 @@
       );
       this.incognitoTimer = null;
       this.incognitoNextRunAt = null;
+      this.incognitoSkipActive = true;
+      this.archivedConversationIds = this.readArchivedIds();
       this.deleteCancelRequested = false;
       this.deleteStats = {
         loading: true,
         updatedAt: 0,
         total: 0,
         selected: 0,
+        selectable: 0,
         deletable: 0,
+        archivedCount: 0,
         selectedDeletable: 0,
         missingConversationId: 0,
         missingElement: 0,
@@ -147,6 +152,82 @@
         DEFAULT_INCOGNITO_INTERVAL_MINUTES
       );
       this.incognitoNextRunAt = Number(this.settings.incognitoNextRunAt || 0) || null;
+      this.incognitoSkipActive = this.settings.incognitoSkipActive !== false;
+    }
+
+    readArchivedIds() {
+      try {
+        const raw = localStorage.getItem(ARCHIVED_IDS_KEY);
+        if (!raw) {
+          return new Set();
+        }
+        const parsed = JSON.parse(raw);
+        return new Set(Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : []);
+      } catch (_error) {
+        return new Set();
+      }
+    }
+
+    persistArchivedIds() {
+      try {
+        localStorage.setItem(ARCHIVED_IDS_KEY, JSON.stringify(Array.from(this.archivedConversationIds)));
+      } catch (_error) {
+        logger?.debug("persistArchivedIds failed.");
+      }
+    }
+
+    isConversationArchived(conversationId) {
+      const id = String(conversationId || "").trim();
+      return Boolean(id) && this.archivedConversationIds.has(id);
+    }
+
+    toggleSessionArchive(conversationId) {
+      const id = String(conversationId || "").trim();
+      if (!id) {
+        toast.show("此对话缺少 ID，无法归档。", "warning", 2400);
+        return { ok: false, reason: "missing_id" };
+      }
+      const archived = this.archivedConversationIds.has(id);
+      if (archived) {
+        this.archivedConversationIds.delete(id);
+        toast.show("已取消归档，该对话恢复可删除。", "info", 2200);
+      } else {
+        this.archivedConversationIds.add(id);
+        this.selectedIds.delete(this.findSessionIdByConversationId(id) || "");
+        toast.show("已归档，该对话将不会被删除。", "success", 2200);
+      }
+      this.persistArchivedIds();
+      this.renderSelectionControls();
+      this.scheduleDeleteStatsRefresh({ force: true });
+      this.emitState();
+      return { ok: true, archived: !archived };
+    }
+
+    findSessionIdByConversationId(conversationId) {
+      const id = String(conversationId || "").trim();
+      if (!id) {
+        return null;
+      }
+      for (const session of this.sessionMap.values()) {
+        if (String(session.conversationId) === id) {
+          return session.id;
+        }
+      }
+      return null;
+    }
+
+    getActiveConversationId() {
+      const match = location.pathname.match(/\/chat\/(\d+)/);
+      return match ? match[1] : null;
+    }
+
+    async setIncognitoSkipActive(enabled) {
+      const next = Boolean(enabled);
+      this.incognitoSkipActive = next;
+      await this.saveSettings({ incognitoSkipActive: next });
+      this.emitState();
+      toast.show(next ? "无痕模式将跳过当前打开的对话。" : "无痕模式不再跳过当前对话。", "info", 2400);
+      return { ok: true };
     }
 
     clampNumber(value, min, max, fallback) {
@@ -325,6 +406,11 @@
       if (!this.multiSelectMode) {
         return;
       }
+      const session = this.sessionMap.get(sessionId);
+      if (this.isConversationArchived(session?.conversationId)) {
+        toast.show("已归档的对话不会被删除；取消归档后才可选择删除。", "warning", 2400);
+        return;
+      }
       if (this.selectedIds.has(sessionId)) {
         this.selectedIds.delete(sessionId);
       } else {
@@ -339,8 +425,11 @@
       if (!this.multiSelectMode) {
         this.setMultiSelectMode(true);
       }
-      for (const sessionId of this.sessionMap.keys()) {
-        this.selectedIds.add(sessionId);
+      this.selectedIds.clear();
+      for (const [sessionId, session] of this.sessionMap.entries()) {
+        if (!this.isConversationArchived(session?.conversationId)) {
+          this.selectedIds.add(sessionId);
+        }
       }
       this.renderSelectionControls();
       this.emitState();
@@ -494,14 +583,20 @@
         if (!(item instanceof HTMLElement)) {
           return;
         }
+        const archived = this.isConversationArchived(session.conversationId);
         item.classList.toggle("dtk-session-selected", this.selectedIds.has(session.id));
         item.classList.toggle("dtk-session-selectable", this.multiSelectMode);
+        item.classList.toggle("dtk-session-archived", archived);
         let checkbox = overlay.querySelector(`[data-session-id="${CSS.escape(session.id)}"]`);
+        let archiveBtn = overlay.querySelector(`[data-archive-session-id="${CSS.escape(session.id)}"]`);
 
         if (!this.multiSelectMode) {
           item.classList.remove("dtk-session-selectable");
           if (checkbox) {
             checkbox.remove();
+          }
+          if (archiveBtn) {
+            archiveBtn.remove();
           }
           return;
         }
@@ -521,35 +616,65 @@
           checkbox.dataset.sessionId = session.id;
           overlay.appendChild(checkbox);
         }
+
+        if (!archiveBtn) {
+          archiveBtn = document.createElement("button");
+          archiveBtn.type = "button";
+          archiveBtn.className = "dtk-session-archive";
+          archiveBtn.setAttribute("role", "switch");
+          archiveBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            this.toggleSessionArchive(session.conversationId);
+          });
+          archiveBtn.dataset.archiveSessionId = session.id;
+          overlay.appendChild(archiveBtn);
+        }
+        archiveBtn.title = archived ? "已归档：取消归档后才可被删除" : "归档此对话，保护它不被删除";
+        archiveBtn.setAttribute(
+          "aria-label",
+          `${archived ? "取消归档" : "归档"}：${session.title || "未命名对话"}`
+        );
+        archiveBtn.setAttribute("aria-checked", String(archived));
+        archiveBtn.classList.toggle("dtk-session-archive-on", archived);
+        if (!session.conversationId) {
+          archiveBtn.disabled = true;
+          archiveBtn.title = "缺少对话 ID，无法归档";
+        } else {
+          archiveBtn.disabled = false;
+        }
+        checkbox.disabled = archived;
+        checkbox.title = archived ? "已归档：取消归档后才可选择删除" : "选择对话";
+
         const rect = this.getSelectionAnchorRect(session);
         if (!rect) {
           checkbox.hidden = true;
+          archiveBtn.hidden = true;
           return;
         }
 
-        // 检查 rect 的基本有效性
         if (!Number.isFinite(rect.left) || !Number.isFinite(rect.top) || !Number.isFinite(rect.width) || !Number.isFinite(rect.height)) {
           checkbox.hidden = true;
+          archiveBtn.hidden = true;
           return;
         }
 
         const viewportHeight = window.innerHeight || 800;
         const viewportWidth = window.innerWidth || 1920;
 
-        // 检查元素是否在视口内
         const visible = rect.bottom >= 0 && rect.top <= viewportHeight && rect.width > 0 && rect.height > 0;
         if (!visible) {
           checkbox.hidden = true;
+          archiveBtn.hidden = true;
           return;
         }
 
-        // 计算勾选框位置
         const checkboxLeft = rect.left + 8;
         const checkboxTop = rect.top + rect.height / 2;
 
-        // 确保勾选框位置在合理范围内（至少在视口左侧边界内，且不会超出右侧太多）
         if (checkboxLeft < -10 || checkboxTop < -10 || checkboxLeft > viewportWidth + 10 || checkboxTop > viewportHeight + 10) {
           checkbox.hidden = true;
+          archiveBtn.hidden = true;
           return;
         }
 
@@ -557,15 +682,30 @@
         checkbox.style.left = `${checkboxLeft}px`;
         checkbox.style.top = `${checkboxTop}px`;
         checkbox.setAttribute("aria-checked", String(this.selectedIds.has(session.id)));
+
+        const archiveLeft = Math.min(viewportWidth - 14, rect.right - 14);
+        archiveBtn.hidden = false;
+        archiveBtn.style.left = `${archiveLeft}px`;
+        archiveBtn.style.top = `${checkboxTop}px`;
     }
 
-    getDeleteTargets(mode) {
+    getDeleteTargets(mode, options = {}) {
+      let targets;
       if (mode === "all") {
-        return Array.from(this.sessionMap.values());
+        targets = Array.from(this.sessionMap.values());
+      } else {
+        targets = Array.from(this.selectedIds)
+          .map((id) => this.sessionMap.get(id))
+          .filter(Boolean);
       }
-      return Array.from(this.selectedIds)
-        .map((id) => this.sessionMap.get(id))
-        .filter(Boolean);
+      targets = targets.filter((t) => !this.isConversationArchived(t.conversationId));
+      if (options.source === "incognito" && this.incognitoSkipActive) {
+        const activeId = this.getActiveConversationId();
+        if (activeId) {
+          targets = targets.filter((t) => String(t.conversationId) !== activeId);
+        }
+      }
+      return targets;
     }
 
     readBooleanSetting(key, fallback) {
@@ -967,16 +1107,20 @@
       this.refreshSessions({ force: Boolean(options.force), skipStats: true });
       const allTargets = this.getDeleteTargets("all");
       const selectedTargets = this.getDeleteTargets("selected");
-      const missingId = allTargets.filter((target) => !target?.conversationId).length;
-      const missingElement = allTargets.filter((target) => !(target?.element instanceof HTMLElement)).length;
+      const allSessions = Array.from(this.sessionMap.values());
+      const missingId = allSessions.filter((target) => !target?.conversationId).length;
+      const missingElement = allSessions.filter((target) => !(target?.element instanceof HTMLElement)).length;
+      const archivedCount = allSessions.filter((t) => this.isConversationArchived(t.conversationId)).length;
       this.deleteStats = {
         updatedAt: Date.now(),
-        total: allTargets.length,
+        total: allSessions.length,
         selected: selectedTargets.length,
+        selectable: allTargets.length,
         deletable: allTargets.filter((target) => target?.conversationId).length,
         selectedDeletable: selectedTargets.filter((target) => target?.conversationId).length,
         missingConversationId: missingId,
         missingElement,
+        archivedCount,
         apiClientReady: Boolean(apiClient?.deleteConversation),
         apiFallbackToUi: Boolean(config?.api?.fallbackToUi),
         loading: false
@@ -1011,7 +1155,7 @@
       }
 
       this.refreshSessions();
-      const targets = this.getDeleteTargets(mode);
+      const targets = this.getDeleteTargets(mode, options);
       if (targets.length === 0) {
         if (!options.silentEmpty) {
           toast.show("没有可删除的对话。", "warning");
@@ -1056,13 +1200,20 @@
       if (mode === "all") {
         const failedIds = new Set();
         let totalEstimate = total;
+        const skipActiveId =
+          options.source === "incognito" && this.incognitoSkipActive ? this.getActiveConversationId() : null;
         while (true) {
           if (this.deleteCancelRequested) {
             cancelled = true;
             break;
           }
           this.refreshSessions();
-          const current = Array.from(this.sessionMap.values()).find((item) => !failedIds.has(item.id));
+          const current = Array.from(this.sessionMap.values()).find((item) => {
+            if (failedIds.has(item.id)) return false;
+            if (this.isConversationArchived(item.conversationId)) return false;
+            if (skipActiveId && String(item.conversationId) === skipActiveId) return false;
+            return true;
+          });
           if (!current) {
             progress.update(done, Math.max(done, totalEstimate), failed);
             break;
@@ -1459,6 +1610,8 @@
         incognitoModeEnabled: this.incognitoModeEnabled,
         incognitoIntervalMinutes: this.incognitoIntervalMinutes,
         incognitoNextRunAt: this.incognitoNextRunAt,
+        incognitoSkipActive: this.incognitoSkipActive,
+        archivedCount: this.archivedConversationIds.size,
         settings: this.settings,
         hasFailedRetryTargets: this.lastFailureDetails.length > 0,
         deleteStats: this.deleteStats,

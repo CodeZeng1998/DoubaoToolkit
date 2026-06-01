@@ -128,6 +128,7 @@
             <span>已选：<b class="dtk-metric-selected">0</b></span>
             <span>可删：<b class="dtk-metric-deletable">0</b></span>
             <span>已选可删：<b class="dtk-metric-selected-deletable">0</b></span>
+            <span>已归档：<b class="dtk-metric-archived">0</b></span>
             <span>缺 ID：<b class="dtk-metric-missing-id">0</b></span>
             <span>缺元素：<b class="dtk-metric-missing-element">0</b></span>
             <span class="dtk-floating-status">就绪</span>
@@ -144,6 +145,10 @@
                 <span>间隔</span>
                 <input type="number" data-action="incognito-interval" min="1" max="1440" step="1" aria-label="无痕模式清理间隔分钟数" />
                 <span>分钟</span>
+              </label>
+              <label class="dtk-toggle-row">
+                <input type="checkbox" data-action="incognito-skip-active" aria-label="跳过当前打开的对话" />
+                <span>跳过当前对话</span>
               </label>
               <span class="dtk-incognito-status">无痕模式未开启</span>
             </div>
@@ -200,6 +205,7 @@
       this.deleteSelectedBtn = root.querySelector("[data-action='delete-selected']");
       this.deleteAllBtn = root.querySelector("[data-action='delete-all']");
       this.incognitoToggle = root.querySelector("[data-action='incognito-toggle']");
+      this.incognitoSkipActiveToggle = root.querySelector("[data-action='incognito-skip-active']");
       this.incognitoIntervalInput = root.querySelector("[data-action='incognito-interval']");
       this.incognitoStatusNode = root.querySelector(".dtk-incognito-status");
       this.incognitoCountdownNode = root.querySelector(".dtk-incognito-countdown");
@@ -207,6 +213,7 @@
       this.selectedNode = root.querySelector(".dtk-metric-selected");
       this.deletableNode = root.querySelector(".dtk-metric-deletable");
       this.selectedDeletableNode = root.querySelector(".dtk-metric-selected-deletable");
+      this.archivedNode = root.querySelector(".dtk-metric-archived");
       this.missingIdNode = root.querySelector(".dtk-metric-missing-id");
       this.missingElementNode = root.querySelector(".dtk-metric-missing-element");
       this.statusNode = root.querySelector(".dtk-floating-status");
@@ -553,6 +560,10 @@
         }
       });
 
+      this.incognitoSkipActiveToggle.addEventListener("change", () => {
+        sessionManager.setIncognitoSkipActive(this.incognitoSkipActiveToggle.checked);
+      });
+
       this.incognitoIntervalInput.addEventListener("change", () => {
         sessionManager.setIncognitoInterval(this.incognitoIntervalInput.value);
       });
@@ -702,6 +713,7 @@
       const stats = state.deleteStats || {};
       this.deletableNode.textContent = String(stats.deletable ?? state.totalSessions ?? 0);
       this.selectedDeletableNode.textContent = String(stats.selectedDeletable ?? state.selectedCount ?? 0);
+      this.archivedNode.textContent = String(stats.archivedCount ?? state.archivedCount ?? 0);
       this.missingIdNode.textContent = String(stats.missingConversationId ?? 0);
       this.missingElementNode.textContent = String(stats.missingElement ?? 0);
       this.modeBtn.textContent = state.multiSelectMode ? "关闭多选" : "开启多选";
@@ -726,6 +738,7 @@
       }
 
       this.incognitoToggle.checked = Boolean(state.incognitoModeEnabled);
+      this.incognitoSkipActiveToggle.checked = state.incognitoSkipActive !== false;
       this.incognitoIntervalInput.value = String(state.incognitoIntervalMinutes || 10);
       this.incognitoStatusNode.textContent = this.formatIncognitoStatus(state);
       this.syncCountdownTimer(state);
@@ -740,6 +753,7 @@
       }
       this.deleteSelectedBtn.disabled = disabled || (state.selectedCount || 0) === 0;
       this.incognitoToggle.disabled = disabled;
+      this.incognitoSkipActiveToggle.disabled = disabled;
       this.incognitoIntervalInput.disabled = disabled;
       this.opacityInput.disabled = disabled;
       this.themeColorInput.disabled = disabled;

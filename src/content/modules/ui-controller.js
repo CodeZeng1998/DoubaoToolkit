@@ -81,6 +81,15 @@
             state: sessionManager.getState()
           };
         };
+      case "DTK_SET_INCOGNITO_SKIP_ACTIVE":
+        return async (payload) => {
+          const result = await sessionManager.setIncognitoSkipActive(Boolean(payload?.enabled));
+          return {
+            ok: true,
+            result,
+            state: sessionManager.getState()
+          };
+        };
       case "DTK_RUN_INCOGNITO_CLEANUP":
         return async () => {
           const result = await sessionManager.runIncognitoCleanup();

@@ -13,6 +13,7 @@
     maxRetryAttempts: 5,
     incognitoModeEnabled: false,
     incognitoIntervalMinutes: 10,
+    incognitoSkipActive: true,
     incognitoNextRunAt: null,
     incognitoLastRunAt: null,
     incognitoLastResult: null
