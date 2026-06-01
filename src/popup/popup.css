@@ -11,6 +11,7 @@
   --p-primary-soft: rgba(13, 148, 136, 0.08);
   --p-danger: #d64c3f;
   --p-warning: #c27a14;
+  --p-warning-soft: rgba(194, 122, 20, 0.1);
   --p-radius: 10px;
   --p-shadow-sm: 0 1px 2px rgba(24, 32, 31, 0.06);
   --p-shadow-md: 0 8px 20px rgba(24, 32, 31, 0.1);
@@ -30,6 +31,7 @@
     --p-primary-soft: rgba(45, 212, 191, 0.1);
     --p-danger: #ff6b5f;
     --p-warning: #fbbf24;
+    --p-warning-soft: rgba(251, 191, 36, 0.12);
     --p-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
     --p-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.28);
   }
@@ -51,7 +53,7 @@ body {
 }
 
 .popup {
-  width: 326px;
+  width: 346px;
   padding: 15px;
   display: grid;
   gap: 11px;
@@ -98,7 +100,7 @@ body {
   border-radius: var(--p-radius);
   padding: 10px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 7px;
   box-shadow: var(--p-shadow-sm);
 }
@@ -146,6 +148,14 @@ body {
   font-weight: 700;
   color: var(--p-text);
   font-variant-numeric: tabular-nums;
+}
+
+.status-item-warning {
+  background: color-mix(in srgb, var(--p-warning) 8%, var(--p-card));
+}
+
+.status-item-warning strong {
+  color: var(--p-warning);
 }
 
 .actions {
@@ -202,6 +212,8 @@ body {
 .btn[data-icon="trash"] { --btn-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M8%203h8l1%202h4v2H3V5h4l1-2Zm1%206h2v9H9V9Zm4%200h2v9h-2V9Z%22%2F%3E%3C%2Fsvg%3E"); }
 .btn[data-icon="warning"] { --btn-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M12%203%202%2021h20L12%203Zm1%2014h-2v-2h2v2Zm0-4h-2V8h2v5Z%22%2F%3E%3C%2Fsvg%3E"); }
 .btn[data-icon="close"] { --btn-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M5.4%204%2012%2010.6%2018.6%204%2020%205.4%2013.4%2012%2020%2018.6%2018.6%2020%2012%2013.4%205.4%2020%204%2018.6%2010.6%2012%204%205.4Z%22%2F%3E%3C%2Fsvg%3E"); }
+.btn[data-icon="archive"] { --btn-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M4%203h16l1%205v13H3V8l1-5Zm2%202-.4%202h12.8L18%205H6Zm-1%204v10h14V9H5Zm4%202h6v2H9v-2Z%22%2F%3E%3C%2Fsvg%3E"); }
+.btn[data-icon="unlock"] { --btn-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M17%209h-1V7a4%204%200%200%200-7.7-1.5l-1.9-.7A6%206%200%200%201%2018%207v2h1v12H7V9h10Zm-8%202v8h8v-8H9Zm3%202h2v4h-2v-4Z%22%2F%3E%3C%2Fsvg%3E"); }
 .link-btn[data-icon="settings"] { --btn-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M4%206h16v2H4V6Zm0%205h10v2H4v-2Zm0%205h13v2H4v-2Zm14-8h2v6h-2V8Zm-6%205h2v6h-2v-6Zm9%205h2v2h-2v-2Z%22%2F%3E%3C%2Fsvg%3E"); }
 .btn[data-icon="refresh"], .link-btn[data-icon="refresh"] { --btn-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M17.7%206.3A8%208%200%201%200%2020%2012h-2a6%206%200%201%201-1.8-4.3L14%2010h7V3l-3.3%203.3Z%22%2F%3E%3C%2Fsvg%3E"); }
 
@@ -270,6 +282,7 @@ body {
 }
 
 .incognito-card,
+.archive-card,
 .history-card {
   position: relative;
   overflow: hidden;
@@ -280,6 +293,29 @@ body {
   display: grid;
   gap: 8px;
   box-shadow: var(--p-shadow-sm);
+}
+
+.archive-card {
+  gap: 9px;
+}
+
+.archive-copy {
+  margin: 0;
+  color: var(--p-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.archive-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.archive-actions .btn {
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.2;
 }
 
 .section-header {
@@ -402,6 +438,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .status-card,
   .actions,
+  .archive-card,
   .incognito-card,
   .history-card,
   .countdown {

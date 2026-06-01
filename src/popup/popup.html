@@ -26,6 +26,10 @@
           <span>可删</span>
           <strong id="deletableSessions">0</strong>
         </div>
+        <div class="status-item status-item-warning">
+          <span>归档</span>
+          <strong id="archivedSessions">0</strong>
+        </div>
       </section>
 
       <section class="actions">
@@ -35,6 +39,20 @@
         <button id="deleteAllBtn" class="btn btn-danger-outline" data-icon="warning">全部删除</button>
         <button id="cancelDeleteBtn" class="btn btn-ghost btn-wide" type="button" data-icon="close">取消删除</button>
         <span id="deleteAllRisk" class="risk-note">高风险：首次使用需启用</span>
+      </section>
+
+      <section class="archive-card">
+        <header class="section-header">
+          <strong>归档保护</strong>
+          <span id="archiveStatus">未归档</span>
+        </header>
+        <p class="archive-copy">归档对话会在批量删除和无痕清理中自动跳过，适合保护长期保留的对话。</p>
+        <div class="archive-actions">
+          <button id="manageArchiveBtn" class="btn btn-ghost" type="button" data-icon="archive">管理归档</button>
+          <button id="archiveSelectedBtn" class="btn btn-ghost" type="button" data-icon="archive">归档已选</button>
+          <button id="unarchiveSelectedBtn" class="btn btn-ghost" type="button" data-icon="unlock">取消归档</button>
+          <button id="clearArchivesBtn" class="btn btn-danger-outline" type="button" data-icon="unlock">清空保护</button>
+        </div>
       </section>
 
       <section class="incognito-card">

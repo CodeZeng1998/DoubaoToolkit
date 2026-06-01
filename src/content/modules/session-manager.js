@@ -193,7 +193,6 @@
         toast.show("已取消归档，该对话恢复可删除。", "info", 2200);
       } else {
         this.archivedConversationIds.add(id);
-        this.selectedIds.delete(this.findSessionIdByConversationId(id) || "");
         toast.show("已归档，该对话将不会被删除。", "success", 2200);
       }
       this.persistArchivedIds();
@@ -201,6 +200,21 @@
       this.scheduleDeleteStatsRefresh({ force: true });
       this.emitState();
       return { ok: true, archived: !archived };
+    }
+
+    clearArchivedConversations() {
+      const cleared = this.archivedConversationIds.size;
+      if (cleared === 0) {
+        toast.show("当前没有归档保护的对话。", "info", 2200);
+        return { ok: true, cleared: 0 };
+      }
+      this.archivedConversationIds.clear();
+      this.persistArchivedIds();
+      this.renderSelectionControls();
+      this.scheduleDeleteStatsRefresh({ force: true });
+      this.emitState();
+      toast.show(`已清空 ${cleared} 个归档保护。`, "success", 2400);
+      return { ok: true, cleared };
     }
 
     findSessionIdByConversationId(conversationId) {
@@ -406,11 +420,6 @@
       if (!this.multiSelectMode) {
         return;
       }
-      const session = this.sessionMap.get(sessionId);
-      if (this.isConversationArchived(session?.conversationId)) {
-        toast.show("已归档的对话不会被删除；取消归档后才可选择删除。", "warning", 2400);
-        return;
-      }
       if (this.selectedIds.has(sessionId)) {
         this.selectedIds.delete(sessionId);
       } else {
@@ -426,10 +435,8 @@
         this.setMultiSelectMode(true);
       }
       this.selectedIds.clear();
-      for (const [sessionId, session] of this.sessionMap.entries()) {
-        if (!this.isConversationArchived(session?.conversationId)) {
-          this.selectedIds.add(sessionId);
-        }
+      for (const sessionId of this.sessionMap.keys()) {
+        this.selectedIds.add(sessionId);
       }
       this.renderSelectionControls();
       this.emitState();
@@ -447,6 +454,51 @@
       }
     }
 
+    setSelectedArchiveState(archived) {
+      if (!this.multiSelectMode) {
+        this.setMultiSelectMode(true);
+      }
+      const targets = Array.from(this.selectedIds)
+        .map((id) => this.sessionMap.get(id))
+        .filter((session) => session?.conversationId);
+      if (!targets.length) {
+        toast.show("请先选择要处理的对话。", "warning", 2400);
+        return { ok: false, reason: "empty_selection", updated: 0 };
+      }
+
+      let updated = 0;
+      for (const session of targets) {
+        const id = String(session.conversationId || "").trim();
+        if (!id) {
+          continue;
+        }
+        const alreadyArchived = this.archivedConversationIds.has(id);
+        if (archived && !alreadyArchived) {
+          this.archivedConversationIds.add(id);
+          updated += 1;
+        } else if (!archived && alreadyArchived) {
+          this.archivedConversationIds.delete(id);
+          updated += 1;
+        }
+      }
+
+      this.persistArchivedIds();
+      this.renderSelectionControls();
+      this.scheduleDeleteStatsRefresh({ force: true });
+      this.emitState();
+      toast.show(
+        archived ? `已归档 ${updated} 个选中对话。` : `已取消归档 ${updated} 个选中对话。`,
+        updated > 0 ? "success" : "info",
+        2400
+      );
+      return {
+        ok: true,
+        archived: Boolean(archived),
+        updated,
+        selected: targets.length
+      };
+    }
+
     scheduleSelectionRender() {
       if (this.selectionRenderTimer) {
         window.clearTimeout(this.selectionRenderTimer);
@@ -462,6 +514,7 @@
       const sessions = Array.from(this.sessionMap.values());
       if (!this.multiSelectMode) {
         this.clearSelectionOverlay();
+        this.syncArchivedSessionClasses(sessions);
         return;
       }
       const overlay = this.ensureSelectionOverlay();
@@ -518,7 +571,16 @@
       this.selectionOverlay?.remove();
       this.selectionOverlay = null;
       for (const item of this.sessionMap.values()) {
-        item?.element?.classList?.remove("dtk-session-selected", "dtk-session-selectable");
+        item?.element?.classList?.remove("dtk-session-selected", "dtk-session-selectable", "dtk-session-archived");
+      }
+    }
+
+    syncArchivedSessionClasses(sessions = Array.from(this.sessionMap.values())) {
+      for (const session of sessions) {
+        session?.element?.classList?.toggle(
+          "dtk-session-archived",
+          this.multiSelectMode && this.isConversationArchived(session?.conversationId)
+        );
       }
     }
 
@@ -643,8 +705,8 @@
         } else {
           archiveBtn.disabled = false;
         }
-        checkbox.disabled = archived;
-        checkbox.title = archived ? "已归档：取消归档后才可选择删除" : "选择对话";
+        checkbox.disabled = false;
+        checkbox.title = archived ? "选择归档对话（删除时会自动提示移除）" : "选择对话";
 
         const rect = this.getSelectionAnchorRect(session);
         if (!rect) {
@@ -706,6 +768,27 @@
         }
       }
       return targets;
+    }
+
+    getSelectedArchivedSessions() {
+      return Array.from(this.selectedIds)
+        .map((id) => this.sessionMap.get(id))
+        .filter((session) => session && this.isConversationArchived(session.conversationId));
+    }
+
+    removeSelectedArchivedSessions() {
+      let removed = 0;
+      for (const session of this.getSelectedArchivedSessions()) {
+        if (session?.id && this.selectedIds.delete(session.id)) {
+          removed += 1;
+        }
+      }
+      if (removed > 0) {
+        this.renderSelectionControls();
+        this.scheduleDeleteStatsRefresh({ force: true });
+        this.emitState();
+      }
+      return removed;
     }
 
     readBooleanSetting(key, fallback) {
@@ -1087,6 +1170,33 @@
       });
     }
 
+    async confirmRemoveArchivedSelection(archivedSessions, deletableCount) {
+      const count = archivedSessions.length;
+      const previewLimit = 5;
+      const previewItems = archivedSessions
+        .slice(0, previewLimit)
+        .map((target, index) => this.formatPreviewTitle(target, index));
+      if (count > previewLimit) {
+        previewItems.push(`等 ${count} 个归档对话`);
+      }
+      const messageLines = [
+        `当前勾选中包含 ${count} 个归档对话，这些对话受保护，不能删除。`,
+        deletableCount > 0
+          ? `是否移除这些归档对话的勾选，并继续删除剩余 ${deletableCount} 个可删除对话？`
+          : "是否移除这些归档对话的勾选？"
+      ];
+      return modal.confirm({
+        title: "存在不可删除的归档对话",
+        messageLines,
+        messageItems: previewItems,
+        confirmText: deletableCount > 0 ? "移除并继续" : "移除勾选",
+        cancelText: "取消",
+        danger: deletableCount > 0,
+        requiredText: "",
+        size: "large"
+      });
+    }
+
     scheduleDeleteStatsRefresh(options = {}) {
       if (this.deleteStatsTimer) {
         window.clearTimeout(this.deleteStatsTimer);
@@ -1108,13 +1218,16 @@
       const allTargets = this.getDeleteTargets("all");
       const selectedTargets = this.getDeleteTargets("selected");
       const allSessions = Array.from(this.sessionMap.values());
+      const selectedSessions = Array.from(this.selectedIds)
+        .map((id) => this.sessionMap.get(id))
+        .filter(Boolean);
       const missingId = allSessions.filter((target) => !target?.conversationId).length;
       const missingElement = allSessions.filter((target) => !(target?.element instanceof HTMLElement)).length;
       const archivedCount = allSessions.filter((t) => this.isConversationArchived(t.conversationId)).length;
       this.deleteStats = {
         updatedAt: Date.now(),
         total: allSessions.length,
-        selected: selectedTargets.length,
+        selected: selectedSessions.length,
         selectable: allTargets.length,
         deletable: allTargets.filter((target) => target?.conversationId).length,
         selectedDeletable: selectedTargets.filter((target) => target?.conversationId).length,
@@ -1156,6 +1269,29 @@
 
       this.refreshSessions();
       const targets = this.getDeleteTargets(mode, options);
+      const selectedArchivedSessions = mode === "selected" ? this.getSelectedArchivedSessions() : [];
+      if (selectedArchivedSessions.length > 0 && !options.skipArchivedSelectionPrompt) {
+        const shouldRemove = await this.confirmRemoveArchivedSelection(selectedArchivedSessions, targets.length);
+        if (!shouldRemove) {
+          return {
+            ok: false,
+            reason: "archived_selection_cancelled",
+            archivedSelected: selectedArchivedSessions.length,
+            total: targets.length + selectedArchivedSessions.length
+          };
+        }
+        const removed = this.removeSelectedArchivedSessions();
+        toast.show(`已移除 ${removed} 个归档对话的勾选。`, "info", 2600);
+        if (targets.length === 0) {
+          return {
+            ok: false,
+            reason: "archived_selection_removed",
+            archivedSelected: selectedArchivedSessions.length,
+            removed,
+            total: selectedArchivedSessions.length
+          };
+        }
+      }
       if (targets.length === 0) {
         if (!options.silentEmpty) {
           toast.show("没有可删除的对话。", "warning");

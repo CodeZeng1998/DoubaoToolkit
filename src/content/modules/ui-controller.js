@@ -90,6 +90,33 @@
             state: sessionManager.getState()
           };
         };
+      case "DTK_CLEAR_ARCHIVED_CONVERSATIONS":
+        return async () => {
+          const result = sessionManager.clearArchivedConversations();
+          return {
+            ok: true,
+            result,
+            state: sessionManager.getState()
+          };
+        };
+      case "DTK_ARCHIVE_SELECTED":
+        return async () => {
+          const result = sessionManager.setSelectedArchiveState(true);
+          return {
+            ok: true,
+            result,
+            state: sessionManager.getState()
+          };
+        };
+      case "DTK_UNARCHIVE_SELECTED":
+        return async () => {
+          const result = sessionManager.setSelectedArchiveState(false);
+          return {
+            ok: true,
+            result,
+            state: sessionManager.getState()
+          };
+        };
       case "DTK_RUN_INCOGNITO_CLEANUP":
         return async () => {
           const result = await sessionManager.runIncognitoCleanup();

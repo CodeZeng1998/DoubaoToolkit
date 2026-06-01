@@ -28,6 +28,8 @@
       this.modeBtn = null;
       this.selectAllBtn = null;
       this.clearBtn = null;
+      this.archiveSelectedBtn = null;
+      this.unarchiveSelectedBtn = null;
       this.deleteSelectedBtn = null;
       this.deleteAllBtn = null;
       this.incognitoToggle = null;
@@ -158,6 +160,8 @@
                 <button type="button" data-action="toggle-mode" class="dtk-mini-btn dtk-mini-btn-primary" title="Ctrl+M" data-icon="multi">开启多选</button>
                 <button type="button" data-action="select-all" class="dtk-mini-btn dtk-mini-btn-ghost" title="Ctrl+A" data-icon="check">全选</button>
                 <button type="button" data-action="clear" class="dtk-mini-btn dtk-mini-btn-ghost" data-icon="clear">清空选择</button>
+                <button type="button" data-action="archive-selected" class="dtk-mini-btn dtk-mini-btn-ghost" data-icon="archive">归档已选</button>
+                <button type="button" data-action="unarchive-selected" class="dtk-mini-btn dtk-mini-btn-ghost" data-icon="unlock">取消归档</button>
               </div>
             </div>
             <div class="dtk-action-group">
@@ -202,6 +206,8 @@
       this.modeBtn = root.querySelector("[data-action='toggle-mode']");
       this.selectAllBtn = root.querySelector("[data-action='select-all']");
       this.clearBtn = root.querySelector("[data-action='clear']");
+      this.archiveSelectedBtn = root.querySelector("[data-action='archive-selected']");
+      this.unarchiveSelectedBtn = root.querySelector("[data-action='unarchive-selected']");
       this.deleteSelectedBtn = root.querySelector("[data-action='delete-selected']");
       this.deleteAllBtn = root.querySelector("[data-action='delete-all']");
       this.incognitoToggle = root.querySelector("[data-action='incognito-toggle']");
@@ -550,6 +556,12 @@
         }
       });
       this.clearBtn.addEventListener("click", () => sessionManager.clearSelection());
+      this.archiveSelectedBtn.addEventListener("click", async () => {
+        await sessionManager.setSelectedArchiveState(true);
+      });
+      this.unarchiveSelectedBtn.addEventListener("click", async () => {
+        await sessionManager.setSelectedArchiveState(false);
+      });
       this.deleteSelectedBtn.addEventListener("click", async () => sessionManager.deleteSessions("selected"));
       this.deleteAllBtn.addEventListener("click", async () => sessionManager.deleteSessions("all"));
 
@@ -752,6 +764,8 @@
         collapseButton.disabled = false;
       }
       this.deleteSelectedBtn.disabled = disabled || (state.selectedCount || 0) === 0;
+      this.archiveSelectedBtn.disabled = disabled || (state.selectedCount || 0) === 0;
+      this.unarchiveSelectedBtn.disabled = disabled || (state.selectedCount || 0) === 0;
       this.incognitoToggle.disabled = disabled;
       this.incognitoSkipActiveToggle.disabled = disabled;
       this.incognitoIntervalInput.disabled = disabled;

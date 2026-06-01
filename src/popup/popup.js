@@ -11,12 +11,15 @@ const state = {
     incognitoModeEnabled: false,
     incognitoIntervalMinutes: 10,
     incognitoNextRunAt: null,
+    archivedCount: 0,
     hasFailedRetryTargets: false,
     deleteStats: {
       loading: true,
       total: 0,
       selected: 0,
+      selectable: 0,
       deletable: 0,
+      archivedCount: 0,
       selectedDeletable: 0,
       missingConversationId: 0,
       missingElement: 0
@@ -71,13 +74,25 @@ function applyState(snapshot) {
   setText("totalSessions", String(state.snapshot.totalSessions ?? 0));
   setText("selectedSessions", String(state.snapshot.selectedCount ?? 0));
   setText("deletableSessions", String(stats.deletable ?? state.snapshot.totalSessions ?? 0));
-  setText("selectedDeletableSessions", String(stats.selectedDeletable ?? state.snapshot.selectedCount ?? 0));
+  const archivedCount = Number(stats.archivedCount ?? state.snapshot.archivedCount ?? 0);
+  const selectedCount = Number(state.snapshot.selectedCount || 0);
+  const selectedDeletable = Number(stats.selectedDeletable ?? selectedCount);
+  const totalSessions = Number(state.snapshot.totalSessions || 0);
+  setText("archivedSessions", String(archivedCount));
+  setText(
+    "archiveStatus",
+    selectedCount > 0
+      ? `已选 ${selectedCount} 个`
+      : archivedCount > 0
+        ? `已保护 ${archivedCount} 个`
+        : "未归档"
+  );
+  setText("selectedDeletableSessions", String(selectedDeletable));
   setText("missingIdSessions", String(stats.missingConversationId ?? 0));
   setText("missingElementSessions", String(stats.missingElement ?? 0));
   setText("modeLabel", state.snapshot.multiSelectMode ? "开启" : "关闭");
   setText("toggleModeBtn", state.snapshot.multiSelectMode ? "关闭多选" : "开启多选");
-  const allSelected =
-    (state.snapshot.totalSessions || 0) > 0 && (state.snapshot.selectedCount || 0) >= (state.snapshot.totalSessions || 0);
+  const allSelected = totalSessions > 0 && selectedCount >= totalSessions;
   setText("selectAllBtn", allSelected ? "取消全选" : "全选");
   $("selectAllBtn")?.setAttribute("aria-pressed", String(allSelected));
   setText("deleteAllRisk", state.snapshot.deleteAllUnlocked ? "高风险：删除前仍需确认" : "高风险：首次使用需启用");
@@ -101,11 +116,15 @@ function applyState(snapshot) {
   for (const button of document.querySelectorAll(".btn")) {
     button.disabled = disabled;
   }
-  setDisabled("deleteSelectedBtn", disabled || (state.snapshot.selectedCount || 0) === 0);
+  setDisabled("deleteSelectedBtn", disabled || selectedCount === 0);
   setDisabled("cancelDeleteBtn", !state.contentReady || !state.snapshot.isDeleting);
   setDisabled("incognitoToggle", disabled);
   setDisabled("incognitoInterval", disabled);
   setDisabled("retryFailedBtn", disabled || !state.snapshot.hasFailedRetryTargets);
+  setDisabled("manageArchiveBtn", disabled);
+  setDisabled("archiveSelectedBtn", disabled || selectedCount === 0);
+  setDisabled("unarchiveSelectedBtn", disabled || selectedCount === 0);
+  setDisabled("clearArchivesBtn", disabled || archivedCount === 0);
 }
 
 function formatIncognitoStatus() {
@@ -329,6 +348,75 @@ function bindActions() {
     }
   });
 
+  bind("manageArchiveBtn", "click", async () => {
+    try {
+      const response = await sendToContent("DTK_TOGGLE_MULTI_SELECT", { enabled: true });
+      if (response?.ok) {
+        applyState(response.state);
+        setMessage("已开启多选模式，可勾选多个未归档对话后批量归档。");
+      } else {
+        setMessage(response?.error || "无法开启归档管理。", true);
+      }
+    } catch (error) {
+      setMessage(error.message, true);
+    }
+  });
+
+  bind("archiveSelectedBtn", "click", async () => {
+    setMessage("正在归档已选对话...");
+    try {
+      const response = await sendToContent("DTK_ARCHIVE_SELECTED");
+      if (response?.ok) {
+        applyState(response.state);
+        setMessage(formatArchiveResult(response.result, "归档"));
+      } else {
+        setMessage(response?.error || "归档已选失败。", true);
+      }
+    } catch (error) {
+      setMessage(error.message, true);
+    }
+  });
+
+  bind("unarchiveSelectedBtn", "click", async () => {
+    setMessage("正在取消归档已选对话...");
+    try {
+      const response = await sendToContent("DTK_UNARCHIVE_SELECTED");
+      if (response?.ok) {
+        applyState(response.state);
+        setMessage(formatArchiveResult(response.result, "取消归档"));
+      } else {
+        setMessage(response?.error || "取消归档已选失败。", true);
+      }
+    } catch (error) {
+      setMessage(error.message, true);
+    }
+  });
+
+  bind("clearArchivesBtn", "click", async () => {
+    const archivedCount = Number(
+      state.snapshot.deleteStats?.archivedCount ?? state.snapshot.archivedCount ?? 0
+    );
+    if (archivedCount <= 0) {
+      setMessage("当前没有归档保护的对话。");
+      return;
+    }
+    if (!window.confirm(`确定清空 ${archivedCount} 个归档保护吗？清空后这些对话会重新参与批量删除。`)) {
+      return;
+    }
+    setMessage("正在清空归档保护...");
+    try {
+      const response = await sendToContent("DTK_CLEAR_ARCHIVED_CONVERSATIONS");
+      if (response?.ok) {
+        applyState(response.state);
+        setMessage(`已清空 ${response.result?.cleared ?? archivedCount} 个归档保护。`);
+      } else {
+        setMessage(response?.error || "清空归档保护失败。", true);
+      }
+    } catch (error) {
+      setMessage(error.message, true);
+    }
+  });
+
   bind("incognitoToggle", "change", async () => {
     try {
       const response = await sendToContent("DTK_SET_INCOGNITO_MODE", { enabled: $("incognitoToggle").checked });
@@ -388,7 +476,23 @@ function formatDeleteResult(result) {
   if (result.reason === "delete_all_locked") {
     return "已取消启用全部删除。";
   }
+  if (result.reason === "archived_selection_cancelled") {
+    return "已取消删除，已选中包含不可删除的归档对话。";
+  }
+  if (result.reason === "archived_selection_removed") {
+    return `已移除 ${result.removed ?? result.archivedSelected ?? 0} 个归档对话的勾选，没有可删除的剩余对话。`;
+  }
+  if (result.reason === "empty") {
+    return "没有可删除的对话。";
+  }
   return `完成：${result.done ?? 0}，失败：${result.failed ?? 0}`;
+}
+
+function formatArchiveResult(result, action) {
+  if (!result || result.reason === "empty_selection") {
+    return "请先选择要处理的对话。";
+  }
+  return `${action}完成：更新 ${result.updated ?? 0} / 已选 ${result.selected ?? 0}`;
 }
 
 async function bootstrap() {
