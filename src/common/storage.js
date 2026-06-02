@@ -16,7 +16,8 @@
     incognitoSkipActive: true,
     incognitoNextRunAt: null,
     incognitoLastRunAt: null,
-    incognitoLastResult: null
+    incognitoLastResult: null,
+    popupTheme: "light"
   };
 
   function hasChromeStorage() {

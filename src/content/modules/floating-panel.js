@@ -8,6 +8,7 @@
   const POSITION_KEY = "dtk_floating_position_v1";
   const SIZE_KEY = "dtk_floating_size_v1";
   const OPACITY_KEY = "dtk_floating_opacity_v1";
+  const THEME_MODE_KEY = "dtk_theme_mode_v1";
   const THEME_COLOR_KEY = "dtk_theme_color_v1";
   const HIGH_CONTRAST_KEY = "dtk_high_contrast_v1";
   const INCOGNITO_NOTICE_OPENED_EVENT = "dtk:incognito-notice-opened";
@@ -17,6 +18,7 @@
   const MIN_PANEL_HEIGHT = 260;
   const MAX_PANEL_WIDTH = 520;
   const MAX_PANEL_HEIGHT = 720;
+  const THEME_MODE_OPTIONS = new Set(["system", "dark", "light"]);
 
   class FloatingPanel {
     constructor() {
@@ -48,6 +50,7 @@
       this.statusNode = null;
       this.opacityInput = null;
       this.opacityValueNode = null;
+      this.themeModeButtons = [];
       this.themeColorInput = null;
       this.highContrastToggle = null;
       this.resizer = null;
@@ -129,6 +132,11 @@
           <header class="dtk-floating-header">
             <strong>豆包工具箱</strong>
             <div class="dtk-floating-header-actions">
+              <div class="dtk-theme-mode-switcher" role="group" aria-label="主题模式">
+                <button type="button" data-theme-mode="system" class="dtk-theme-mode-option" aria-label="跟随系统" aria-pressed="false" title="跟随系统"></button>
+                <button type="button" data-theme-mode="dark" class="dtk-theme-mode-option" aria-label="暗色" aria-pressed="false" title="暗色"></button>
+                <button type="button" data-theme-mode="light" class="dtk-theme-mode-option is-active" aria-label="明亮" aria-pressed="true" title="明亮"></button>
+              </div>
               <button type="button" data-action="collapse" class="dtk-icon-btn" title="折叠面板" aria-label="折叠面板" data-icon="collapse"></button>
             </div>
           </header>
@@ -234,6 +242,7 @@
       this.statusNode = root.querySelector(".dtk-floating-status");
       this.opacityInput = root.querySelector("[data-action='opacity']");
       this.opacityValueNode = root.querySelector(".dtk-opacity-value");
+      this.themeModeButtons = Array.from(root.querySelectorAll("[data-theme-mode]"));
       this.themeColorInput = root.querySelector("[data-action='theme-color']");
       this.highContrastToggle = root.querySelector("[data-action='high-contrast']");
       this.resizer = root.querySelector(".dtk-panel-resize");
@@ -351,14 +360,20 @@
 
     applyPreferences() {
       const opacity = this.readNumber(OPACITY_KEY, 96, 35, 100);
+      const themeMode = this.normalizeThemeMode(this.readString(THEME_MODE_KEY, "light"));
       const color = this.readString(THEME_COLOR_KEY, "#1f6fff");
       const highContrast = this.readString(HIGH_CONTRAST_KEY, "false") === "true";
       this.opacityInput.value = String(opacity);
       this.themeColorInput.value = color;
       this.highContrastToggle.checked = highContrast;
+      this.applyThemeMode(themeMode);
       this.applyOpacity(opacity);
       this.applyThemeColor(color);
       this.applyHighContrast(highContrast);
+    }
+
+    normalizeThemeMode(value) {
+      return THEME_MODE_OPTIONS.has(value) ? value : "light";
     }
 
     readString(key, fallback) {
@@ -399,6 +414,17 @@
       const color = /^#[0-9a-f]{6}$/i.test(String(value)) ? value : "#1f6fff";
       document.documentElement.style.setProperty("--dtk-primary", color);
       this.writeString(THEME_COLOR_KEY, color);
+    }
+
+    applyThemeMode(value) {
+      const themeMode = this.normalizeThemeMode(value);
+      document.documentElement.dataset.dtkTheme = themeMode;
+      for (const button of this.themeModeButtons) {
+        const isActive = button.dataset.themeMode === themeMode;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      }
+      this.writeString(THEME_MODE_KEY, themeMode);
     }
 
     applyHighContrast(enabled) {
@@ -590,6 +616,9 @@
       });
 
       this.opacityInput.addEventListener("input", () => this.applyOpacity(this.opacityInput.value));
+      for (const button of this.themeModeButtons) {
+        button.addEventListener("click", () => this.applyThemeMode(button.dataset.themeMode));
+      }
       this.themeColorInput.addEventListener("input", () => this.applyThemeColor(this.themeColorInput.value));
       this.highContrastToggle.addEventListener("change", () => this.applyHighContrast(this.highContrastToggle.checked));
 
@@ -772,6 +801,9 @@
       const collapseButton = this.root.querySelector("[data-action='collapse']");
       if (collapseButton) {
         collapseButton.disabled = false;
+      }
+      for (const button of this.themeModeButtons) {
+        button.disabled = false;
       }
       this.deleteSelectedBtn.disabled = disabled || (state.selectedCount || 0) === 0;
       this.archiveSelectedBtn.disabled = disabled || (state.selectedCount || 0) === 0;

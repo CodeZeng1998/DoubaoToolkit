@@ -25,10 +25,12 @@ const state = {
       missingElement: 0
     }
   },
-  latestTask: null
+  latestTask: null,
+  popupTheme: "light"
 };
 
 const $ = (id) => document.getElementById(id);
+const THEME_OPTIONS = new Set(["system", "dark", "light"]);
 
 function setText(id, value) {
   const node = $(id);
@@ -63,6 +65,41 @@ async function sendToContent(type, payload) {
     throw new Error("没有可用的当前标签页。");
   }
   return chrome.tabs.sendMessage(state.tabId, { type, payload });
+}
+
+function normalizeTheme(theme) {
+  return THEME_OPTIONS.has(theme) ? theme : "light";
+}
+
+function applyPopupTheme(theme) {
+  const nextTheme = normalizeTheme(theme);
+  state.popupTheme = nextTheme;
+  document.documentElement.dataset.theme = nextTheme;
+
+  for (const option of document.querySelectorAll("[data-theme-option]")) {
+    const isActive = option.dataset.themeOption === nextTheme;
+    option.classList.toggle("is-active", isActive);
+    option.setAttribute("aria-pressed", String(isActive));
+  }
+}
+
+async function loadPopupTheme() {
+  try {
+    const settings = await DoubaoToolkitStorage.getSettings();
+    applyPopupTheme(settings.popupTheme);
+  } catch (_error) {
+    applyPopupTheme(state.popupTheme);
+  }
+}
+
+async function savePopupTheme(theme) {
+  const nextTheme = normalizeTheme(theme);
+  applyPopupTheme(nextTheme);
+  try {
+    await DoubaoToolkitStorage.saveSettings({ popupTheme: nextTheme });
+  } catch (error) {
+    setMessage(error.message || "保存主题设置失败。", true);
+  }
 }
 
 function applyState(snapshot) {
@@ -255,6 +292,10 @@ function bindActions() {
     node.addEventListener(eventName, handler);
     return node;
   };
+
+  for (const option of document.querySelectorAll("[data-theme-option]")) {
+    option.addEventListener("click", () => savePopupTheme(option.dataset.themeOption));
+  }
 
   bind("toggleModeBtn", "click", async () => {
     try {
@@ -496,6 +537,7 @@ function formatArchiveResult(result, action) {
 }
 
 async function bootstrap() {
+  await loadPopupTheme();
   bindActions();
   applyState({});
 
