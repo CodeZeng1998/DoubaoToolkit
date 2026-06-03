@@ -448,17 +448,41 @@
       this.hoverCloseTimer = null;
     }
 
-    scheduleHoverClose() {
+    isPointInsideElement(element, x, y) {
+      if (!element) {
+        return false;
+      }
+      const rect = element.getBoundingClientRect();
+      return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    }
+
+    isPointerInsideFloatingSurface(event) {
+      if (!event || typeof event.clientX !== "number" || typeof event.clientY !== "number") {
+        return false;
+      }
+      return (
+        this.isPointInsideElement(this.toggleBtn, event.clientX, event.clientY) ||
+        this.isPointInsideElement(this.panel, event.clientX, event.clientY)
+      );
+    }
+
+    scheduleHoverClose(event) {
       this.clearHoverCloseTimer();
-      if (!this.canHoverOpen() || this.dragState || this.resizeState || this.isMultiSelectActive()) {
+      if (!this.canHoverOpen() || this.dragState || this.resizeState || this.isPointerInsideFloatingSurface(event)) {
         return;
       }
       this.hoverCloseTimer = window.setTimeout(() => {
         this.hoverCloseTimer = null;
-        if (this.panelOpen && !this.dragState && !this.resizeState && !this.isMultiSelectActive()) {
+        if (this.panelOpen && !this.dragState && !this.resizeState) {
           this.setPanelOpen(false);
         }
       }, 220);
+    }
+
+    exitMultiSelectAfterArchive(result) {
+      if (result?.ok && this.isMultiSelectActive()) {
+        sessionManager.setMultiSelectMode(false);
+      }
     }
 
     setPanelOpen(open, options = {}) {
@@ -554,7 +578,9 @@
 
     bind() {
       this.root.addEventListener("pointerenter", () => this.clearHoverCloseTimer());
-      this.root.addEventListener("pointerleave", () => this.scheduleHoverClose());
+      this.root.addEventListener("pointerleave", (event) => this.scheduleHoverClose(event));
+      this.panel.addEventListener("pointerenter", () => this.clearHoverCloseTimer());
+      this.panel.addEventListener("pointerleave", (event) => this.scheduleHoverClose(event));
       this.toggleBtn.addEventListener("pointerenter", () => {
         if (!this.panelOpen && !this.dragState && this.canHoverOpen()) {
           this.setPanelOpen(true, { focus: false });
@@ -592,10 +618,12 @@
       });
       this.clearBtn.addEventListener("click", () => sessionManager.clearSelection());
       this.archiveSelectedBtn.addEventListener("click", async () => {
-        await sessionManager.setSelectedArchiveState(true);
+        const result = await sessionManager.setSelectedArchiveState(true);
+        this.exitMultiSelectAfterArchive(result);
       });
       this.unarchiveSelectedBtn.addEventListener("click", async () => {
-        await sessionManager.setSelectedArchiveState(false);
+        const result = await sessionManager.setSelectedArchiveState(false);
+        this.exitMultiSelectAfterArchive(result);
       });
       this.deleteSelectedBtn.addEventListener("click", async () => sessionManager.deleteSessions("selected"));
       this.deleteAllBtn.addEventListener("click", async () => sessionManager.deleteSessions("all"));
