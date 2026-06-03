@@ -45,8 +45,6 @@
       this.selectedNode = null;
       this.deletableNode = null;
       this.selectedDeletableNode = null;
-      this.missingIdNode = null;
-      this.missingElementNode = null;
       this.statusNode = null;
       this.opacityInput = null;
       this.opacityValueNode = null;
@@ -146,8 +144,6 @@
             <span>可删：<b class="dtk-metric-deletable">0</b></span>
             <span>已选可删：<b class="dtk-metric-selected-deletable">0</b></span>
             <span>已归档：<b class="dtk-metric-archived">0</b></span>
-            <span>缺 ID：<b class="dtk-metric-missing-id">0</b></span>
-            <span>缺元素：<b class="dtk-metric-missing-element">0</b></span>
             <span class="dtk-floating-status">就绪</span>
           </div>
           <div class="dtk-floating-actions">
@@ -237,8 +233,6 @@
       this.deletableNode = root.querySelector(".dtk-metric-deletable");
       this.selectedDeletableNode = root.querySelector(".dtk-metric-selected-deletable");
       this.archivedNode = root.querySelector(".dtk-metric-archived");
-      this.missingIdNode = root.querySelector(".dtk-metric-missing-id");
-      this.missingElementNode = root.querySelector(".dtk-metric-missing-element");
       this.statusNode = root.querySelector(".dtk-floating-status");
       this.opacityInput = root.querySelector("[data-action='opacity']");
       this.opacityValueNode = root.querySelector(".dtk-opacity-value");
@@ -793,8 +787,6 @@
       this.deletableNode.textContent = String(stats.deletable ?? state.totalSessions ?? 0);
       this.selectedDeletableNode.textContent = String(stats.selectedDeletable ?? state.selectedCount ?? 0);
       this.archivedNode.textContent = String(stats.archivedCount ?? state.archivedCount ?? 0);
-      this.missingIdNode.textContent = String(stats.missingConversationId ?? 0);
-      this.missingElementNode.textContent = String(stats.missingElement ?? 0);
       this.modeBtn.textContent = state.multiSelectMode ? "关闭多选" : "开启多选";
       const allSelected = (state.totalSessions || 0) > 0 && (state.selectedCount || 0) >= (state.totalSessions || 0);
       this.selectAllBtn.textContent = allSelected ? "取消全选" : "全选";
