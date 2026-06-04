@@ -317,7 +317,7 @@
         return Boolean(
           domUtils.isInToolkitUI?.(node) ||
             node.closest?.(
-              ".dtk-floating-root,.dtk-toast-container,.dtk-toast-detail-overlay,.dtk-modal-overlay,.dtk-progress-overlay"
+              ".dtk-floating-root,.dtk-floating-tooltip,.dtk-toast-container,.dtk-toast-detail-overlay,.dtk-modal-overlay,.dtk-progress-overlay"
             )
         );
       };
