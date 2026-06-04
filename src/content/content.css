@@ -1275,6 +1275,68 @@ html[data-dtk-theme="dark"] .dtk-icon-btn {
   background: color-mix(in srgb, var(--dtk-bg-soft) 72%, transparent);
 }
 
+.dtk-floating-metrics .dtk-metric-item-archived {
+  position: relative;
+}
+
+.dtk-metric-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  font-style: normal;
+}
+
+.dtk-metric-help {
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--dtk-primary) 40%, var(--dtk-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dtk-primary) 7%, var(--dtk-surface-raised));
+  color: var(--dtk-primary);
+  cursor: help;
+  font: 700 11px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.dtk-metric-help:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--dtk-primary) 64%, transparent);
+  outline-offset: 2px;
+}
+
+.dtk-floating-tooltip {
+  position: fixed;
+  z-index: 2147483647;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 20px));
+  padding: 7px 9px;
+  border: 1px solid var(--dtk-border);
+  border-radius: 6px;
+  background: var(--dtk-surface-raised);
+  color: var(--dtk-text);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+  font: 500 12px/1.45 "Aptos", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  opacity: 0;
+  pointer-events: none;
+  text-align: left;
+  transform: translateY(4px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  user-select: none;
+  white-space: normal;
+}
+
+.dtk-floating-tooltip.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.dtk-floating-tooltip[hidden] {
+  display: none;
+}
+
 html[data-dtk-theme="dark"] .dtk-floating-metrics span {
   background: linear-gradient(180deg, rgba(24, 31, 29, 0.95), rgba(17, 22, 20, 0.95));
   border-color: color-mix(in srgb, var(--dtk-border) 92%, transparent);

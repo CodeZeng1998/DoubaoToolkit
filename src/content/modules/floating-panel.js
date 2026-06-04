@@ -45,6 +45,9 @@
       this.selectedNode = null;
       this.deletableNode = null;
       this.selectedDeletableNode = null;
+      this.archiveHelpBtn = null;
+      this.tooltipNode = null;
+      this.tooltipAnchor = null;
       this.statusNode = null;
       this.opacityInput = null;
       this.opacityValueNode = null;
@@ -143,7 +146,18 @@
             <span>已选：<b class="dtk-metric-selected">0</b></span>
             <span>可删：<b class="dtk-metric-deletable">0</b></span>
             <span>已选可删：<b class="dtk-metric-selected-deletable">0</b></span>
-            <span>已归档：<b class="dtk-metric-archived">0</b></span>
+            <span class="dtk-metric-item-archived">
+              <em class="dtk-metric-label">
+                已归档
+                <button
+                  type="button"
+                  class="dtk-metric-help"
+                  aria-label="已归档说明"
+                  data-tooltip="已归档表示已加入归档保护的对话，批量删除和无痕清理会自动跳过。"
+                >?</button>：
+              </em>
+              <b class="dtk-metric-archived">0</b>
+            </span>
             <span class="dtk-floating-status">就绪</span>
           </div>
           <div class="dtk-floating-actions">
@@ -233,6 +247,7 @@
       this.deletableNode = root.querySelector(".dtk-metric-deletable");
       this.selectedDeletableNode = root.querySelector(".dtk-metric-selected-deletable");
       this.archivedNode = root.querySelector(".dtk-metric-archived");
+      this.archiveHelpBtn = root.querySelector(".dtk-metric-help");
       this.statusNode = root.querySelector(".dtk-floating-status");
       this.opacityInput = root.querySelector("[data-action='opacity']");
       this.opacityValueNode = root.querySelector(".dtk-opacity-value");
@@ -479,11 +494,75 @@
       }
     }
 
+    ensureTooltip() {
+      if (this.tooltipNode && document.body.contains(this.tooltipNode)) {
+        return this.tooltipNode;
+      }
+      const tooltip = document.createElement("div");
+      tooltip.className = "dtk-floating-tooltip";
+      tooltip.setAttribute("role", "tooltip");
+      tooltip.hidden = true;
+      document.body.appendChild(tooltip);
+      this.tooltipNode = tooltip;
+      return tooltip;
+    }
+
+    showTooltip(anchor) {
+      const text = anchor?.dataset?.tooltip;
+      if (!text) {
+        return;
+      }
+      const tooltip = this.ensureTooltip();
+      this.tooltipAnchor = anchor;
+      tooltip.textContent = text;
+      tooltip.hidden = false;
+      this.positionTooltip();
+      requestAnimationFrame(() => tooltip.classList.add("is-visible"));
+    }
+
+    hideTooltip() {
+      if (!this.tooltipNode) {
+        return;
+      }
+      this.tooltipNode.classList.remove("is-visible");
+      this.tooltipNode.hidden = true;
+      this.tooltipAnchor = null;
+    }
+
+    positionTooltip() {
+      if (!this.tooltipNode || !this.tooltipAnchor || this.tooltipNode.hidden) {
+        return;
+      }
+      const anchorRect = this.tooltipAnchor.getBoundingClientRect();
+      const tooltip = this.tooltipNode;
+      const margin = 10;
+      const gap = 8;
+      const maxWidth = Math.min(280, window.innerWidth - margin * 2);
+      tooltip.style.maxWidth = `${maxWidth}px`;
+      tooltip.style.left = "0px";
+      tooltip.style.top = "0px";
+
+      const tooltipRect = tooltip.getBoundingClientRect();
+      const preferredLeft = anchorRect.left + anchorRect.width / 2 - tooltipRect.width / 2;
+      const left = Math.min(Math.max(margin, preferredLeft), window.innerWidth - tooltipRect.width - margin);
+      let top = anchorRect.top - tooltipRect.height - gap;
+      if (top < margin) {
+        top = anchorRect.bottom + gap;
+      }
+      top = Math.min(Math.max(margin, top), window.innerHeight - tooltipRect.height - margin);
+
+      tooltip.style.left = `${Math.round(left)}px`;
+      tooltip.style.top = `${Math.round(top)}px`;
+    }
+
     setPanelOpen(open, options = {}) {
       this.panelOpen = Boolean(open);
       this.updatePanelPlacement();
       this.root.classList.toggle("open", this.panelOpen);
       this.toggleBtn.setAttribute("aria-expanded", String(this.panelOpen));
+      if (!this.panelOpen) {
+        this.hideTooltip();
+      }
       if (this.panelOpen) {
         sessionManager.scheduleDeleteStatsRefresh?.({ force: true });
       }
@@ -596,6 +675,12 @@
 
       this.root.querySelector("[data-action='collapse']").addEventListener("click", () => this.setPanelOpen(false));
 
+      this.archiveHelpBtn?.addEventListener("pointerenter", () => this.showTooltip(this.archiveHelpBtn));
+      this.archiveHelpBtn?.addEventListener("pointerleave", () => this.hideTooltip());
+      this.archiveHelpBtn?.addEventListener("focus", () => this.showTooltip(this.archiveHelpBtn));
+      this.archiveHelpBtn?.addEventListener("blur", () => this.hideTooltip());
+      this.panel.addEventListener("scroll", () => this.positionTooltip(), { passive: true });
+
       this.modeBtn.addEventListener("click", () => {
         const state = sessionManager.getState();
         sessionManager.setMultiSelectMode(!state.multiSelectMode);
@@ -645,7 +730,10 @@
       this.highContrastToggle.addEventListener("change", () => this.applyHighContrast(this.highContrastToggle.checked));
 
       window.addEventListener("dtk:state-changed", (event) => this.update(event.detail));
-      window.addEventListener("resize", () => this.updateResponsiveMode());
+      window.addEventListener("resize", () => {
+        this.updateResponsiveMode();
+        this.positionTooltip();
+      });
       document.addEventListener("click", (event) => {
         if (this.panelOpen && !this.root.contains(event.target) && !this.isMultiSelectActive()) {
           this.setPanelOpen(false);
@@ -815,7 +903,7 @@
       this.syncCountdownTimer(state);
 
       const disabled = Boolean(state.isDeleting);
-      for (const button of this.panel.querySelectorAll("button")) {
+      for (const button of this.panel.querySelectorAll("button:not(.dtk-metric-help)")) {
         button.disabled = disabled;
       }
       const collapseButton = this.root.querySelector("[data-action='collapse']");
